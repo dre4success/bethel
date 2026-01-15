@@ -1,20 +1,24 @@
 import type { Tool } from '../../types';
-import { COLORS } from '../../types';
+import { COLORS, FONTS } from '../../types';
 import './Toolbar.css';
 
 interface ToolbarProps {
   tool: Tool;
   color: string;
+  font: string;
   onToolChange: (tool: Tool) => void;
   onColorChange: (color: string) => void;
+  onFontChange: (font: string) => void;
   onClear: () => void;
 }
 
 export function Toolbar({
   tool,
   color,
+  font,
   onToolChange,
   onColorChange,
+  onFontChange,
   onClear,
 }: ToolbarProps) {
   return (
@@ -69,6 +73,23 @@ export function Toolbar({
             title={`Color: ${c}`}
           />
         ))}
+      </div>
+
+      <div className="toolbar-divider" />
+
+      <div className="toolbar-section">
+        <select
+          className="font-select"
+          value={font}
+          onChange={(e) => onFontChange(e.target.value)}
+          title="Font"
+        >
+          {FONTS.map((f) => (
+            <option key={f.name} value={f.value} style={{ fontFamily: f.value }}>
+              {f.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="toolbar-divider" />

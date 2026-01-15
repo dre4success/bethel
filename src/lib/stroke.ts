@@ -1,24 +1,28 @@
 import type { Stroke } from '../types';
 import { MIN_STROKE_WIDTH, MAX_STROKE_WIDTH } from '../types';
 
+const ERASER_WIDTH = 20;
+
 // Calculate stroke width based on pressure
-export function getStrokeWidth(pressure: number): number {
+export function getStrokeWidth(pressure: number, isEraser: boolean = false): number {
+  if (isEraser) return ERASER_WIDTH;
   return MIN_STROKE_WIDTH + pressure * (MAX_STROKE_WIDTH - MIN_STROKE_WIDTH);
 }
 
 // Draw a single stroke on canvas
 export function drawStroke(
   ctx: CanvasRenderingContext2D,
-  stroke: Stroke,
-  isEraser: boolean = false
+  stroke: Stroke
 ): void {
   if (stroke.points.length < 2) return;
+
+  const isEraser = stroke.tool === 'eraser';
 
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  if (isEraser || stroke.tool === 'eraser') {
+  if (isEraser) {
     ctx.globalCompositeOperation = 'destination-out';
     ctx.strokeStyle = 'rgba(0,0,0,1)';
   } else {
@@ -31,9 +35,9 @@ export function drawStroke(
     const prev = stroke.points[i - 1];
     const curr = stroke.points[i];
 
-    // Average pressure for smoother transitions
+    // Average pressure for smoother transitions (eraser uses fixed width)
     const avgPressure = (prev.pressure + curr.pressure) / 2;
-    ctx.lineWidth = getStrokeWidth(avgPressure);
+    ctx.lineWidth = getStrokeWidth(avgPressure, isEraser);
 
     ctx.beginPath();
     ctx.moveTo(prev.x, prev.y);
@@ -73,23 +77,3 @@ export function redrawCanvas(
   }
 }
 
-// Find stroke at a given point (for eraser)
-export function findStrokeAtPoint(
-  strokes: Stroke[],
-  x: number,
-  y: number,
-  threshold: number = 20
-): string | null {
-  for (let i = strokes.length - 1; i >= 0; i--) {
-    const stroke = strokes[i];
-    for (const point of stroke.points) {
-      const distance = Math.sqrt(
-        Math.pow(point.x - x, 2) + Math.pow(point.y - y, 2)
-      );
-      if (distance < threshold) {
-        return stroke.id;
-      }
-    }
-  }
-  return null;
-}

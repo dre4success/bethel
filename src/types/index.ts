@@ -20,6 +20,7 @@ export interface TextBlock {
   content: string;
   fontSize: number;
   color: string;
+  fontFamily: string;
 }
 
 export interface Note {
@@ -50,6 +51,15 @@ export const COLORS = [
   '#FF9500', // Orange
   '#AF52DE', // Purple
 ] as const;
+
+export const FONTS = [
+  { name: 'Caveat', value: "'Caveat', cursive" },
+  { name: 'Patrick Hand', value: "'Patrick Hand', cursive" },
+  { name: 'Indie Flower', value: "'Indie Flower', cursive" },
+  { name: 'System', value: 'system-ui, sans-serif' },
+] as const;
+
+export const DEFAULT_FONT = FONTS[0].value;
 
 export const MIN_STROKE_WIDTH = 1;
 export const MAX_STROKE_WIDTH = 12;

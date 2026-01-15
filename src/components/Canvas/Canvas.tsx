@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState, memo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Stroke, Point, Tool, TextBlock } from '../../types';
-import { drawStroke, redrawCanvas, findStrokeAtPoint } from '../../lib/stroke';
+import { drawStroke, redrawCanvas } from '../../lib/stroke';
 import './Canvas.css';
 
 interface TextBlockComponentProps {
@@ -70,7 +70,7 @@ const TextBlockComponent = memo(function TextBlockComponent({
         onFocus={onStartEdit}
         onBlur={handleBlur}
         placeholder="Type here..."
-        style={{ color: block.color, fontSize: block.fontSize }}
+        style={{ color: block.color, fontSize: block.fontSize, fontFamily: block.fontFamily }}
       />
     </div>
   );
@@ -79,6 +79,7 @@ const TextBlockComponent = memo(function TextBlockComponent({
 interface CanvasProps {
   tool: Tool;
   color: string;
+  font: string;
   strokes: Stroke[];
   textBlocks: TextBlock[];
   onStrokesChange: (strokes: Stroke[]) => void;
@@ -88,6 +89,7 @@ interface CanvasProps {
 export function Canvas({
   tool,
   color,
+  font,
   strokes,
   textBlocks,
   onStrokesChange,
@@ -166,8 +168,9 @@ export function Canvas({
         width: 200,
         height: 40,
         content: '',
-        fontSize: 16,
+        fontSize: 20,
         color: color,
+        fontFamily: font,
       };
       onTextBlocksChange([...textBlocks, newTextBlock]);
       setEditingTextId(newTextBlock.id);
@@ -181,13 +184,6 @@ export function Canvas({
     canvas.setPointerCapture(e.pointerId);
     const point = getPointerPosition(e);
 
-    if (tool === 'eraser') {
-      const strokeId = findStrokeAtPoint(strokes, point.x, point.y);
-      if (strokeId) {
-        onStrokesChange(strokes.filter(s => s.id !== strokeId));
-      }
-    }
-
     const newStroke: Stroke = {
       id: uuidv4(),
       points: [point],
@@ -197,20 +193,12 @@ export function Canvas({
 
     currentStrokeRef.current = newStroke;
     setIsDrawing(true);
-  }, [tool, color, strokes, textBlocks, getPointerPosition, onStrokesChange, onTextBlocksChange]);
+  }, [tool, color, font, textBlocks, getPointerPosition, onTextBlocksChange]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDrawing || !currentStrokeRef.current) return;
 
     const point = getPointerPosition(e);
-
-    if (tool === 'eraser') {
-      const strokeId = findStrokeAtPoint(strokes, point.x, point.y);
-      if (strokeId) {
-        onStrokesChange(strokes.filter(s => s.id !== strokeId));
-      }
-    }
-
     currentStrokeRef.current.points.push(point);
 
     const canvas = canvasRef.current;
@@ -220,7 +208,7 @@ export function Canvas({
     if (!ctx) return;
 
     drawStroke(ctx, currentStrokeRef.current);
-  }, [isDrawing, tool, strokes, getPointerPosition, onStrokesChange]);
+  }, [isDrawing, getPointerPosition]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     if (!isDrawing || !currentStrokeRef.current) return;
@@ -230,13 +218,14 @@ export function Canvas({
       canvas.releasePointerCapture(e.pointerId);
     }
 
-    if (currentStrokeRef.current.points.length > 1 && tool !== 'eraser') {
+    // Save stroke (both pen and eraser strokes)
+    if (currentStrokeRef.current.points.length > 1) {
       onStrokesChange([...strokes, currentStrokeRef.current]);
     }
 
     currentStrokeRef.current = null;
     setIsDrawing(false);
-  }, [isDrawing, tool, strokes, onStrokesChange]);
+  }, [isDrawing, strokes, onStrokesChange]);
 
   const handleTextEndEdit = useCallback((id: string, content: string) => {
     onTextBlocksChange(
