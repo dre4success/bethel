@@ -1,76 +1,68 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Canvas } from './components/Canvas';
-import { Toolbar } from './components/Toolbar';
-import { NoteSidebar } from './components/NoteSidebar';
-import { useNotes } from './hooks/useNotes';
-import type { Tool, Stroke, TextBlock } from './types';
-import { COLORS, DEFAULT_FONT } from './types';
-import './App.css';
+import { useState, useEffect, useCallback } from 'react'
+import { Canvas } from './components/Canvas'
+import { Toolbar } from './components/Toolbar'
+import { NoteSidebar } from './components/NoteSidebar'
+import { useNotes } from './hooks/useNotes'
+import type { Tool, Stroke, TextBlock } from './types'
+import { COLORS, DEFAULT_FONT } from './types'
+import './App.css'
 
 function App() {
-  const [tool, setTool] = useState<Tool>('pen');
-  const [color, setColor] = useState<string>(COLORS[0]);
-  const [font, setFont] = useState<string>(DEFAULT_FONT);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tool, setTool] = useState<Tool>('pen')
+  const [color, setColor] = useState<string>(COLORS[0])
+  const [font, setFont] = useState<string>(DEFAULT_FONT)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const {
-    notes,
-    currentNote,
-    loading,
-    createNote,
-    selectNote,
-    deleteNote,
-    renameNote,
-    saveNote,
-  } = useNotes();
+  const { notes, currentNote, loading, createNote, selectNote, deleteNote, renameNote, saveNote } =
+    useNotes()
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
+        return
       }
 
       switch (e.key.toLowerCase()) {
         case 'p':
-          setTool('pen');
-          break;
+          setTool('pen')
+          break
         case 'e':
-          setTool('eraser');
-          break;
+          setTool('eraser')
+          break
         case 't':
-          setTool('text');
-          break;
+          setTool('text')
+          break
       }
-    };
+    }
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const handleStrokesChange = useCallback(
     (strokes: Stroke[]) => {
       if (currentNote) {
-        saveNote(strokes, currentNote.textBlocks);
+        saveNote(strokes, currentNote.textBlocks)
       }
     },
     [currentNote, saveNote]
-  );
+  )
 
   const handleTextBlocksChange = useCallback(
     (textBlocks: TextBlock[]) => {
       if (currentNote) {
-        saveNote(currentNote.strokes, textBlocks);
+        saveNote(currentNote.strokes, textBlocks)
       }
     },
     [currentNote, saveNote]
-  );
+  )
 
   const handleClear = useCallback(() => {
     if (currentNote && confirm('Clear all content from this note?')) {
-      saveNote([], []);
+      saveNote([], [])
     }
-  }, [currentNote, saveNote]);
+  }, [currentNote, saveNote])
 
   if (loading) {
     return (
@@ -78,7 +70,7 @@ function App() {
         <div className="loading-spinner" />
         <p>Loading Bethel...</p>
       </div>
-    );
+    )
   }
 
   return (
@@ -116,7 +108,7 @@ function App() {
         />
       </div>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

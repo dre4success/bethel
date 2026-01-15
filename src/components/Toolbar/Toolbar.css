@@ -44,7 +44,7 @@
 }
 
 .tool-button.active {
-  background: #007AFF;
+  background: #007aff;
   color: white;
 }
 
@@ -68,7 +68,9 @@
 
 .color-button.active {
   border-color: #333;
-  box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+  box-shadow:
+    0 0 0 2px white,
+    0 0 0 4px #333;
 }
 
 .font-select {
@@ -88,7 +90,7 @@
 }
 
 .font-select:focus {
-  border-color: #007AFF;
+  border-color: #007aff;
 }
 
 /* Touch-friendly sizes for mobile */

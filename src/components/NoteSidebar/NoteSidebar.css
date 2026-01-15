@@ -70,7 +70,7 @@
   height: 36px;
   border: none;
   border-radius: 8px;
-  background: #007AFF;
+  background: #007aff;
   color: white;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -164,7 +164,7 @@
 .note-title-input {
   flex: 1;
   padding: 4px 8px;
-  border: 1px solid #007AFF;
+  border: 1px solid #007aff;
   border-radius: 4px;
   font-size: 14px;
   outline: none;

@@ -1,1 +1,1 @@
-export { NoteSidebar } from './NoteSidebar';
+export { NoteSidebar } from './NoteSidebar'

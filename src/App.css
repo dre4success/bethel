@@ -29,7 +29,7 @@
   width: 40px;
   height: 40px;
   border: 3px solid #e0e0e0;
-  border-top-color: #007AFF;
+  border-top-color: #007aff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
