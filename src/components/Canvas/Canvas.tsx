@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback, useState, memo } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { Stroke, Point, Tool, TextBlock } from '../../types'
+import { DEFAULT_FONT } from '../../types'
 import { drawStroke, redrawCanvas } from '../../lib/stroke'
 import './Canvas.css'
 
@@ -36,6 +37,26 @@ const TextBlockComponent = memo(function TextBlockComponent({
     }
   }, [isEditing])
 
+  // Auto-resize textarea
+  const adjustHeight = useCallback(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${textarea.scrollHeight}px`
+    }
+  }, [])
+
+  useEffect(() => {
+    adjustHeight()
+  }, [localContent, adjustHeight])
+
+  // Adjust on start edit too
+  useEffect(() => {
+    if (isEditing) {
+      adjustHeight()
+    }
+  }, [isEditing, adjustHeight])
+
   const handleBlur = () => {
     if (!localContent.trim()) {
       onDelete()
@@ -47,10 +68,10 @@ const TextBlockComponent = memo(function TextBlockComponent({
   const handleDragStart = (e: React.DragEvent) => {
     if (isEditing) {
       e.preventDefault()
-      return
+    } else {
+      e.dataTransfer.setData('textBlockId', block.id)
+      e.dataTransfer.effectAllowed = 'move'
     }
-    e.dataTransfer.setData('textBlockId', block.id)
-    e.dataTransfer.effectAllowed = 'move'
   }
 
   return (
@@ -72,11 +93,14 @@ const TextBlockComponent = memo(function TextBlockComponent({
         onFocus={onStartEdit}
         onBlur={handleBlur}
         placeholder="Type here..."
+        rows={1}
         style={{
           color: block.color,
           fontSize: block.fontSize,
           fontFamily: block.fontFamily,
           fontWeight: 600,
+          overflow: 'hidden',
+          resize: 'none',
         }}
       />
     </div>
@@ -86,7 +110,6 @@ const TextBlockComponent = memo(function TextBlockComponent({
 interface CanvasProps {
   tool: Tool
   color: string
-  font: string
   strokes: Stroke[]
   textBlocks: TextBlock[]
   onStrokesChange: (strokes: Stroke[]) => void
@@ -96,7 +119,6 @@ interface CanvasProps {
 export function Canvas({
   tool,
   color,
-  font,
   strokes,
   textBlocks,
   onStrokesChange,
@@ -141,6 +163,36 @@ export function Canvas({
     redrawCanvas(ctx, strokes, CANVAS_WIDTH, CANVAS_HEIGHT)
   }, [strokes])
 
+  // Handle native pointer events to prevent scrolling for pen
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const handleNativePointerDown = (e: PointerEvent) => {
+      // If it's a pen, prevent default to stop browser scrolling
+      if (e.pointerType === 'pen') {
+        e.preventDefault()
+      }
+    }
+
+    const handleTouchStart = (e: TouchEvent) => {
+      // Aggressively prevent scrolling if it's a stylus
+      const touch = e.touches[0] as any
+      if (e.touches.length === 1 && touch.touchType === 'stylus') {
+        e.preventDefault()
+      }
+    }
+
+    // passive: false is critical for preventDefault to work on iOS
+    canvas.addEventListener('pointerdown', handleNativePointerDown, { passive: false })
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
+
+    return () => {
+      canvas.removeEventListener('pointerdown', handleNativePointerDown)
+      canvas.removeEventListener('touchstart', handleTouchStart)
+    }
+  }, [])
+
   // Check if this pointer type should draw (pen or mouse, not touch)
   const shouldDraw = useCallback((e: React.PointerEvent): boolean => {
     // Touch = scroll/pan, Pen/Mouse = draw
@@ -166,7 +218,7 @@ export function Canvas({
         return
       }
 
-      // Touch should scroll, not draw
+      // Touch should scroll (pan), so we just return and let browser handle it
       if (!shouldDraw(e)) {
         return
       }
@@ -182,13 +234,14 @@ export function Canvas({
           content: '',
           fontSize: 24,
           color: color,
-          fontFamily: font,
+          fontFamily: DEFAULT_FONT,
         }
         onTextBlocksChange([...textBlocks, newTextBlock])
         setEditingTextId(newTextBlock.id)
         return
       }
 
+      // We prevent default here too for good measure (though the native listener does the heavy lifting)
       e.preventDefault()
       const canvas = canvasRef.current
       if (!canvas) return
@@ -206,7 +259,7 @@ export function Canvas({
       currentStrokeRef.current = newStroke
       setIsDrawing(true)
     },
-    [tool, color, font, textBlocks, getPointerPosition, onTextBlocksChange, shouldDraw]
+    [tool, color, textBlocks, getPointerPosition, onTextBlocksChange, shouldDraw]
   )
 
   const handlePointerMove = useCallback(
@@ -230,12 +283,12 @@ export function Canvas({
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
-      if (!isDrawing || !currentStrokeRef.current) return
-
       const canvas = canvasRef.current
       if (canvas) {
         canvas.releasePointerCapture(e.pointerId)
       }
+
+      if (!isDrawing || !currentStrokeRef.current) return
 
       // Save stroke (both pen and eraser strokes)
       if (currentStrokeRef.current.points.length > 1) {

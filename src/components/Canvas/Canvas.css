@@ -6,12 +6,15 @@
   touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
   /* Hide scrollbars but keep scrolling */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
 }
 
 .scroll-container::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  display: none;
+  /* Chrome, Safari, Opera */
 }
 
 .canvas-container {
@@ -26,7 +29,7 @@
   cursor: crosshair;
   background: #ffffff;
   /* Pen/mouse draws, touch passes through for scrolling */
-  touch-action: none;
+  touch-action: pan-x pan-y;
 }
 
 .text-block {

@@ -4,13 +4,12 @@ import { Toolbar } from './components/Toolbar'
 import { NoteSidebar } from './components/NoteSidebar'
 import { useNotes } from './hooks/useNotes'
 import type { Tool, Stroke, TextBlock } from './types'
-import { COLORS, DEFAULT_FONT } from './types'
+import { COLORS } from './types'
 import './App.css'
 
 function App() {
   const [tool, setTool] = useState<Tool>('pen')
   const [color, setColor] = useState<string>(COLORS[0])
-  const [font, setFont] = useState<string>(DEFAULT_FONT)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const { notes, currentNote, loading, createNote, selectNote, deleteNote, renameNote, saveNote } =
@@ -90,17 +89,14 @@ function App() {
         <Toolbar
           tool={tool}
           color={color}
-          font={font}
           onToolChange={setTool}
           onColorChange={setColor}
-          onFontChange={setFont}
           onClear={handleClear}
         />
 
         <Canvas
           tool={tool}
           color={color}
-          font={font}
           strokes={currentNote?.strokes ?? []}
           textBlocks={currentNote?.textBlocks ?? []}
           onStrokesChange={handleStrokesChange}
