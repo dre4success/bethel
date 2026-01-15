@@ -1,0 +1,96 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-section.colors {
+  gap: 6px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: #e0e0e0;
+  margin: 0 8px;
+}
+
+.tool-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tool-button:hover {
+  background: #f0f0f0;
+}
+
+.tool-button.active {
+  background: #007AFF;
+  color: white;
+}
+
+.tool-button.danger:hover {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+.color-button {
+  width: 32px;
+  height: 32px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.color-button:hover {
+  transform: scale(1.1);
+}
+
+.color-button.active {
+  border-color: #333;
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+}
+
+/* Touch-friendly sizes for mobile */
+@media (max-width: 768px) {
+  .toolbar {
+    padding: 8px;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .tool-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .color-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .toolbar-divider {
+    display: none;
+  }
+}
