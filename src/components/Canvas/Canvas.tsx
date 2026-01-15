@@ -9,35 +9,46 @@ import './Canvas.css'
 const CANVAS_WIDTH = 3000
 const CANVAS_HEIGHT = 3000
 
+import { ResizeHandles } from './ResizeHandles'
+
 interface TextBlockComponentProps {
   block: TextBlock
   isEditing: boolean
+  isSelected: boolean
+  onSelect: () => void
   onStartEdit: () => void
-  onEndEdit: (content: string) => void
+  onEndEdit: (content: string, width?: number, fontSize?: number) => void
   onDelete: () => void
+  onDragStart: (e: React.DragEvent) => void
 }
 
 const TextBlockComponent = memo(function TextBlockComponent({
   block,
   isEditing,
+  isSelected,
+  onSelect,
   onStartEdit,
   onEndEdit,
   onDelete,
+  onDragStart,
 }: TextBlockComponentProps) {
   const [localContent, setLocalContent] = useState(block.content)
+  const [isResizing, setIsResizing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // Update local content when prop changes
   useEffect(() => {
     setLocalContent(block.content)
   }, [block.content])
 
+  // Focus when editing starts
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus()
     }
   }, [isEditing])
 
-  // Auto-resize textarea
+  // Auto-resize logic (updates height)
   const adjustHeight = useCallback(() => {
     const textarea = textareaRef.current
     if (textarea) {
@@ -48,51 +59,94 @@ const TextBlockComponent = memo(function TextBlockComponent({
 
   useEffect(() => {
     adjustHeight()
-  }, [localContent, adjustHeight])
-
-  // Adjust on start edit too
-  useEffect(() => {
-    if (isEditing) {
-      adjustHeight()
-    }
-  }, [isEditing, adjustHeight])
+  }, [localContent, adjustHeight, block.fontSize, block.width])
 
   const handleBlur = () => {
-    if (!localContent.trim()) {
-      onDelete()
-    } else {
-      onEndEdit(localContent)
+    if (isEditing) {
+      if (!localContent.trim()) {
+        onDelete()
+      } else {
+        onEndEdit(localContent)
+      }
     }
   }
 
-  const handleDragStart = (e: React.DragEvent) => {
-    if (isEditing) {
-      e.preventDefault()
-    } else {
-      e.dataTransfer.setData('textBlockId', block.id)
-      e.dataTransfer.effectAllowed = 'move'
+  // Handle Resize Logic (Scaling Font Size)
+  const handleResizeStart = (idx: number, e: React.PointerEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setIsResizing(true)
+    const startX = e.clientX
+    const startY = e.clientY
+    const startFontSize = block.fontSize
+
+    // We determine scale based on diagonal movement
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault()
+      const dx = moveEvent.clientX - startX
+      const dy = moveEvent.clientY - startY
+
+      // idx: 0=nw, 1=ne, 2=se, 3=sw
+
+      let scaleFactor = 1
+      if (idx === 2) {
+        // SE
+        scaleFactor = (dx + dy) / 2
+      } else if (idx === 1) {
+        // NE
+        scaleFactor = (dx - dy) / 2
+      } else if (idx === 3) {
+        // SW
+        scaleFactor = (-dx + dy) / 2
+      } else {
+        // NW
+        scaleFactor = (-dx - dy) / 2
+      }
+
+      const newSize = Math.max(12, startFontSize + scaleFactor * 0.5)
+
+      // Directly update parent logic via prop for instant feedback might be expensive
+      // optimize by updating local state then committing on up?
+      // Since this is resize, realtime feedback is critical.
+      onEndEdit(localContent, undefined, newSize)
     }
+
+    const handlePointerUp = () => {
+      setIsResizing(false)
+      document.removeEventListener('pointermove', handlePointerMove)
+      document.removeEventListener('pointerup', handlePointerUp)
+    }
+
+    document.addEventListener('pointermove', handlePointerMove)
+    document.addEventListener('pointerup', handlePointerUp)
   }
 
   return (
     <div
-      className={`text-block ${isEditing ? 'editing' : ''}`}
+      className={`text-block ${isSelected ? 'selected' : ''} ${isEditing ? 'editing' : ''}`}
       style={{
         left: block.x,
         top: block.y,
-        minWidth: block.width,
-        minHeight: block.height,
+        width: block.width,
       }}
-      draggable={!isEditing}
-      onDragStart={handleDragStart}
+      onPointerDown={(e) => {
+        e.stopPropagation()
+        onSelect()
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation()
+        onStartEdit()
+      }}
+      draggable={!isEditing && !isResizing}
+      onDragStart={onDragStart}
     >
       <textarea
         ref={textareaRef}
         value={localContent}
         onChange={(e) => setLocalContent(e.target.value)}
-        onFocus={onStartEdit}
         onBlur={handleBlur}
-        placeholder="Type here..."
+        readOnly={!isEditing}
         rows={1}
         style={{
           color: block.color,
@@ -101,8 +155,10 @@ const TextBlockComponent = memo(function TextBlockComponent({
           fontWeight: 600,
           overflow: 'hidden',
           resize: 'none',
+          pointerEvents: isEditing ? 'auto' : 'none',
         }}
       />
+      {isSelected && !isEditing && <ResizeHandles onResizeStart={handleResizeStart} />}
     </div>
   )
 })
@@ -130,6 +186,7 @@ export function Canvas({
   const [isDrawing, setIsDrawing] = useState(false)
   const currentStrokeRef = useRef<Stroke | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
 
   // Initialize canvas with fixed size
   useEffect(() => {
@@ -214,9 +271,16 @@ export function Canvas({
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       // Don't draw if clicking on a text block
-      if ((e.target as HTMLElement).tagName === 'TEXTAREA') {
+      if (
+        (e.target as HTMLElement).tagName === 'TEXTAREA' ||
+        (e.target as HTMLElement).classList.contains('text-block')
+      ) {
         return
       }
+
+      // Clear selection if clicking empty canvas
+      setSelectedTextId(null)
+      setEditingTextId(null)
 
       // Touch should scroll (pan), so we just return and let browser handle it
       if (!shouldDraw(e)) {
@@ -302,11 +366,23 @@ export function Canvas({
   )
 
   const handleTextEndEdit = useCallback(
-    (id: string, content: string) => {
-      onTextBlocksChange(textBlocks.map((tb) => (tb.id === id ? { ...tb, content } : tb)))
-      setEditingTextId(null)
+    (id: string, content: string, width?: number, fontSize?: number) => {
+      onTextBlocksChange(
+        textBlocks.map((tb) =>
+          tb.id === id
+            ? {
+                ...tb,
+                content,
+                width: width || tb.width,
+                fontSize: fontSize || tb.fontSize,
+              }
+            : tb
+        )
+      )
+      // Only clear editing, not selecting
+      if (editingTextId === id) setEditingTextId(null)
     },
-    [textBlocks, onTextBlocksChange]
+    [textBlocks, onTextBlocksChange, editingTextId]
   )
 
   const handleTextDelete = useCallback(
@@ -357,9 +433,25 @@ export function Canvas({
             key={block.id}
             block={block}
             isEditing={editingTextId === block.id}
-            onStartEdit={() => setEditingTextId(block.id)}
-            onEndEdit={(content) => handleTextEndEdit(block.id, content)}
+            isSelected={selectedTextId === block.id}
+            onSelect={() => {
+              if (selectedTextId !== block.id) setSelectedTextId(block.id)
+            }}
+            onStartEdit={() => {
+              setEditingTextId(block.id)
+              setSelectedTextId(block.id)
+            }}
+            onEndEdit={(content, width, fontSize) =>
+              handleTextEndEdit(block.id, content, width, fontSize)
+            }
             onDelete={() => handleTextDelete(block.id)}
+            onDragStart={(e) => {
+              // Only drag if selected or idle.
+              // We need to set drag data
+              e.dataTransfer.setData('textBlockId', block.id)
+              e.dataTransfer.effectAllowed = 'move'
+              if (selectedTextId !== block.id) setSelectedTextId(block.id)
+            }}
           />
         ))}
       </div>
