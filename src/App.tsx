@@ -4,13 +4,10 @@ import { Toolbar } from './components/Toolbar'
 import { NoteSidebar } from './components/NoteSidebar'
 import { useNotes } from './hooks/useNotes'
 import { useHistory } from './hooks/useHistory'
-import { exportToPNG, exportToSVG, exportToPDF } from './lib/export'
+import { exportToPNG, exportToPDF, exportToSVG } from './lib/export'
 import type { Tool } from './types'
 import { COLORS } from './types'
 import './App.css'
-
-const CANVAS_WIDTH = 3000
-const CANVAS_HEIGHT = 3000
 
 type Theme = 'light' | 'dark'
 
@@ -101,22 +98,22 @@ function App() {
     const canvas = canvasRef.current?.getCanvas()
     if (canvas) {
       const filename = `${currentNote?.title || 'note'}.png`
-      exportToPNG(canvas, textBlocks, filename)
+      exportToPNG(canvas, strokes, textBlocks, filename)
     }
-  }, [textBlocks, currentNote?.title])
-
-  const handleExportSVG = useCallback(() => {
-    const filename = `${currentNote?.title || 'note'}.svg`
-    exportToSVG(strokes, textBlocks, CANVAS_WIDTH, CANVAS_HEIGHT, filename)
   }, [strokes, textBlocks, currentNote?.title])
 
   const handleExportPDF = useCallback(async () => {
     const canvas = canvasRef.current?.getCanvas()
     if (canvas) {
       const filename = `${currentNote?.title || 'note'}.pdf`
-      await exportToPDF(canvas, textBlocks, filename)
+      await exportToPDF(canvas, strokes, textBlocks, filename)
     }
-  }, [textBlocks, currentNote?.title])
+  }, [strokes, textBlocks, currentNote?.title])
+
+  const handleExportSVG = useCallback(() => {
+    const filename = `${currentNote?.title || 'note'}.svg`
+    exportToSVG(strokes, textBlocks, filename)
+  }, [strokes, textBlocks, currentNote?.title])
 
   if (loading) {
     return (
@@ -166,6 +163,7 @@ function App() {
           textBlocks={textBlocks}
           onStrokesChange={setStrokes}
           onTextBlocksChange={setTextBlocks}
+          theme={theme}
         />
       </div>
     </div>

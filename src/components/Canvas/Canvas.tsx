@@ -10,7 +10,7 @@ import {
 import { v4 as uuidv4 } from 'uuid'
 import type { Stroke, Point, Tool, TextBlock } from '../../types'
 import { DEFAULT_FONT } from '../../types'
-import { drawStroke, redrawCanvas } from '../../lib/stroke'
+import { drawStroke, redrawCanvas, getRenderColor } from '../../lib/stroke'
 import './Canvas.css'
 
 // Canvas dimensions (larger than viewport for scrolling)
@@ -25,8 +25,11 @@ interface TextBlockComponentProps {
   isSelected: boolean
   onSelect: () => void
   onStartEdit: () => void
+  onEndEdit: (content: string, width?: number, fontSize?: number) => void
   onUpdate: (updates: Partial<TextBlock>) => void
   onDelete: () => void
+  onDragStart: (e: React.DragEvent) => void
+  theme?: 'light' | 'dark'
 }
 
 const TextBlockComponent = memo(function TextBlockComponent({
@@ -37,11 +40,11 @@ const TextBlockComponent = memo(function TextBlockComponent({
   onStartEdit,
   onUpdate,
   onDelete,
+  theme = 'light',
 }: TextBlockComponentProps) {
   const [localContent, setLocalContent] = useState(block.content)
   const [localFontSize, setLocalFontSize] = useState(block.fontSize)
   const [localPosition, setLocalPosition] = useState({ x: block.x, y: block.y })
-  const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const blockRef = useRef<HTMLDivElement>(null)
@@ -97,7 +100,6 @@ const TextBlockComponent = memo(function TextBlockComponent({
     e.stopPropagation()
     e.preventDefault()
 
-    setIsDragging(true)
     onSelect()
 
     const startX = e.clientX
@@ -123,7 +125,6 @@ const TextBlockComponent = memo(function TextBlockComponent({
       // Keep local position at final spot, commit to parent
       setLocalPosition({ x: finalX, y: finalY })
       onUpdate({ x: finalX, y: finalY })
-      setIsDragging(false)
       target.releasePointerCapture(e.pointerId)
       document.removeEventListener('pointermove', handlePointerMove)
       document.removeEventListener('pointerup', handlePointerUp)
@@ -185,11 +186,12 @@ const TextBlockComponent = memo(function TextBlockComponent({
   return (
     <div
       ref={blockRef}
-      className={`text-block ${isSelected ? 'selected' : ''} ${isEditing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`text-block ${isSelected ? 'selected' : ''} ${isEditing ? 'editing' : ''}`}
       style={{
         left: localPosition.x,
         top: localPosition.y,
         width: block.width,
+        color: getRenderColor(block.color, theme),
       }}
       onPointerDown={handleDragStart}
       onDoubleClick={(e) => {
@@ -205,7 +207,7 @@ const TextBlockComponent = memo(function TextBlockComponent({
         readOnly={!isEditing}
         rows={1}
         style={{
-          color: block.color,
+          color: getRenderColor(block.color, theme),
           fontSize: localFontSize,
           fontFamily: block.fontFamily,
           fontWeight: 600,
@@ -226,6 +228,7 @@ interface CanvasProps {
   textBlocks: TextBlock[]
   onStrokesChange: (strokes: Stroke[]) => void
   onTextBlocksChange: (textBlocks: TextBlock[]) => void
+  theme?: 'light' | 'dark'
 }
 
 export interface CanvasHandle {
@@ -233,7 +236,7 @@ export interface CanvasHandle {
 }
 
 export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
-  { tool, color, strokes, textBlocks, onStrokesChange, onTextBlocksChange },
+  { tool, color, strokes, textBlocks, onStrokesChange, onTextBlocksChange, theme },
   ref
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -263,11 +266,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     const ctx = canvas.getContext('2d')
     if (ctx) {
       ctx.scale(dpr, dpr)
-      redrawCanvas(ctx, strokes, CANVAS_WIDTH, CANVAS_HEIGHT)
+      redrawCanvas(ctx, strokes, CANVAS_WIDTH, CANVAS_HEIGHT, theme)
     }
   }, []) // Only run once on mount
 
-  // Redraw when strokes change
+  // Redraw when strokes or theme change
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -277,8 +280,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
     const dpr = window.devicePixelRatio || 1
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    redrawCanvas(ctx, strokes, CANVAS_WIDTH, CANVAS_HEIGHT)
-  }, [strokes])
+    redrawCanvas(ctx, strokes, CANVAS_WIDTH, CANVAS_HEIGHT, theme)
+  }, [strokes, theme])
 
   // Handle native pointer events to prevent scrolling for pen
   useEffect(() => {
@@ -328,6 +331,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     }
   }, [])
 
+  // Track start position for tap detection
+  const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null)
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       // Don't draw if clicking on a text block
@@ -342,30 +348,24 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       setSelectedTextId(null)
       setEditingTextId(null)
 
+      if (tool === 'text') {
+        // For text tool, we record start position to detect a "tap" vs "scroll/drag"
+        tapStartRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId }
+
+        // If it's Pen/Mouse, we block default to prevent unwanted selection/etc.
+        // If it's Touch, we let it pass so the browser can scroll if the user drags.
+        if (shouldDraw(e)) {
+          e.preventDefault()
+        }
+        return
+      }
+
       // Touch should scroll (pan), so we just return and let browser handle it
       if (!shouldDraw(e)) {
         return
       }
 
-      if (tool === 'text') {
-        const pos = getPointerPosition(e)
-        const newTextBlock: TextBlock = {
-          id: uuidv4(),
-          x: pos.x,
-          y: pos.y,
-          width: 200,
-          height: 40,
-          content: '',
-          fontSize: 24,
-          color: color,
-          fontFamily: DEFAULT_FONT,
-        }
-        onTextBlocksChange([...textBlocks, newTextBlock])
-        setEditingTextId(newTextBlock.id)
-        return
-      }
-
-      // We prevent default here too for good measure (though the native listener does the heavy lifting)
+      // We prevent default here for drawing
       e.preventDefault()
       const canvas = canvasRef.current
       if (!canvas) return
@@ -388,6 +388,17 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
+      // If checking for tap (Text Tool)
+      if (tapStartRef.current && tapStartRef.current.id === e.pointerId) {
+        const dx = Math.abs(e.clientX - tapStartRef.current.x)
+        const dy = Math.abs(e.clientY - tapStartRef.current.y)
+        // If moved more than 5px, it's a drag/scroll, not a tap. Cancel tap.
+        if (dx > 5 || dy > 5) {
+          tapStartRef.current = null
+        }
+        return
+      }
+
       if (!isDrawing || !currentStrokeRef.current) return
       if (!shouldDraw(e)) return
 
@@ -400,9 +411,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
-      drawStroke(ctx, currentStrokeRef.current)
+      drawStroke(ctx, currentStrokeRef.current, theme)
     },
-    [isDrawing, getPointerPosition, shouldDraw]
+    [isDrawing, getPointerPosition, shouldDraw, theme]
   )
 
   const handlePointerUp = useCallback(
@@ -411,6 +422,34 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       if (canvas) {
         canvas.releasePointerCapture(e.pointerId)
       }
+
+      // Verify Tap for Text Tool
+      if (tool === 'text' && tapStartRef.current && tapStartRef.current.id === e.pointerId) {
+        // It's a valid tap! Create text block.
+        const point = getPointerPosition(e)
+        // Use the event position (up) or stored (down)? Up is fine if movement was small.
+        // Actually, let's use the 'down' position logic via getPointerPosition on the current event
+        // which gives us the location relative to canvas.
+
+        const newTextBlock: TextBlock = {
+          id: uuidv4(),
+          x: point.x,
+          y: point.y,
+          width: 200,
+          height: 40,
+          content: '',
+          fontSize: 24,
+          color: color,
+          fontFamily: DEFAULT_FONT,
+        }
+        onTextBlocksChange([...textBlocks, newTextBlock])
+        setEditingTextId(newTextBlock.id)
+        setSelectedTextId(newTextBlock.id)
+
+        tapStartRef.current = null
+        return
+      }
+      tapStartRef.current = null // Clear ref if it wasn't a match or tool changed
 
       if (!isDrawing || !currentStrokeRef.current) return
 
@@ -422,18 +461,37 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       currentStrokeRef.current = null
       setIsDrawing(false)
     },
-    [isDrawing, strokes, onStrokesChange]
+    [isDrawing, strokes, onStrokesChange, tool, color, textBlocks, getPointerPosition]
   )
 
   const handleTextUpdate = useCallback(
     (id: string, updates: Partial<TextBlock>) => {
       onTextBlocksChange(textBlocks.map((tb) => (tb.id === id ? { ...tb, ...updates } : tb)))
-      // Clear editing if content was updated (blur)
-      if (updates.content !== undefined && editingTextId === id) {
-        setEditingTextId(null)
-      }
     },
-    [textBlocks, onTextBlocksChange, editingTextId]
+    [textBlocks, onTextBlocksChange]
+  )
+
+  const handleTextEndEdit = useCallback(
+    (id: string, content: string, width?: number, fontSize?: number) => {
+      if (!content.trim()) {
+        onTextBlocksChange(textBlocks.filter((tb) => tb.id !== id))
+      } else {
+        onTextBlocksChange(
+          textBlocks.map((tb) =>
+            tb.id === id
+              ? {
+                  ...tb,
+                  content,
+                  width: width ?? tb.width,
+                  fontSize: fontSize ?? tb.fontSize,
+                }
+              : tb
+          )
+        )
+      }
+      setEditingTextId(null)
+    },
+    [textBlocks, onTextBlocksChange]
   )
 
   const handleTextDelete = useCallback(
@@ -473,7 +531,16 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
               setSelectedTextId(block.id)
             }}
             onUpdate={(updates) => handleTextUpdate(block.id, updates)}
+            onEndEdit={(content, width, fontSize) =>
+              handleTextEndEdit(block.id, content, width, fontSize)
+            }
+            onDragStart={(e) => {
+              e.dataTransfer.setData('textBlockId', block.id)
+              e.dataTransfer.effectAllowed = 'move'
+              if (selectedTextId !== block.id) setSelectedTextId(block.id)
+            }}
             onDelete={() => handleTextDelete(block.id)}
+            theme={theme}
           />
         ))}
       </div>

@@ -105,9 +105,12 @@ export function Toolbar({
           <button
             key={c}
             className={`color-button ${color === c ? 'active' : ''}`}
-            style={{ backgroundColor: c }}
+            style={{
+              backgroundColor: c === '#000000' && theme === 'dark' ? '#FFFFFF' : c,
+              boxShadow: (c as string) === '#FFFFFF' ? 'inset 0 0 0 1px #e5e5e5' : 'none',
+            }}
             onClick={() => onColorChange(c)}
-            title={`Color: ${c}`}
+            title={`Color: ${c === '#000000' && theme === 'dark' ? 'Adaptive White' : c}`}
           />
         ))}
       </div>

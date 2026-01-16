@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import type { Stroke, TextBlock } from '../types'
 
 interface HistoryState {
@@ -24,69 +24,87 @@ export function useHistory(
   initialStrokes: Stroke[] = [],
   initialTextBlocks: TextBlock[] = []
 ): UseHistoryReturn {
-  const [history, setHistory] = useState<HistoryState[]>([
-    { strokes: initialStrokes, textBlocks: initialTextBlocks },
-  ])
-  const [historyIndex, setHistoryIndex] = useState(0)
-  const isUndoRedoRef = useRef(false)
+  // Combined state to ensure atomicity
+  const [state, setState] = useState<{
+    history: HistoryState[]
+    index: number
+  }>({
+    history: [{ strokes: initialStrokes, textBlocks: initialTextBlocks }],
+    index: 0,
+  })
 
-  const currentState = history[historyIndex]
+  // We still use a ref for the pushState callback ensures we always have access to the latest state
+  // without adding it to the dependency array, avoiding infinite loops if used in effects.
+  // However, with the functional update pattern of useState, we might not strictly need it,
+  // but it's good practice for complex state logic.
+  // Actually, with the single state object and functional updates, we don't need refs for state access inside setState!
+
+  const currentState = state.history[state.index] || { strokes: [], textBlocks: [] }
 
   const pushState = useCallback(
-    (newState: HistoryState) => {
-      if (isUndoRedoRef.current) {
-        isUndoRedoRef.current = false
-        return
-      }
+    (stateUpdate: HistoryState | ((prev: HistoryState) => HistoryState)) => {
+      setState((prevState) => {
+        const { history, index } = prevState
+        const currentHead = history[index]
 
-      setHistory((prev) => {
-        // Remove any future states if we're not at the end
-        const newHistory = prev.slice(0, historyIndex + 1)
+        const newState = typeof stateUpdate === 'function' ? stateUpdate(currentHead) : stateUpdate
+
+        // If strict equality check passes, don't update (optional optimization)
+        if (newState === currentHead) return prevState
+
+        const newHistory = history.slice(0, index + 1)
         newHistory.push(newState)
 
-        // Limit history size
         if (newHistory.length > MAX_HISTORY) {
           newHistory.shift()
-          return newHistory
         }
-        return newHistory
+
+        return {
+          history: newHistory,
+          index: newHistory.length - 1,
+        }
       })
-      setHistoryIndex((prev) => Math.min(prev + 1, MAX_HISTORY - 1))
     },
-    [historyIndex]
+    []
   )
 
   const setStrokes = useCallback(
     (strokes: Stroke[]) => {
-      pushState({ strokes, textBlocks: currentState.textBlocks })
+      pushState((current) => ({ ...current, strokes }))
     },
-    [pushState, currentState.textBlocks]
+    [pushState]
   )
 
   const setTextBlocks = useCallback(
     (textBlocks: TextBlock[]) => {
-      pushState({ strokes: currentState.strokes, textBlocks })
+      pushState((current) => ({ ...current, textBlocks }))
     },
-    [pushState, currentState.strokes]
+    [pushState]
   )
 
   const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      isUndoRedoRef.current = true
-      setHistoryIndex((prev) => prev - 1)
-    }
-  }, [historyIndex])
+    setState((prevState) => {
+      if (prevState.index > 0) {
+        return { ...prevState, index: prevState.index - 1 }
+      }
+      return prevState
+    })
+  }, [])
 
   const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      isUndoRedoRef.current = true
-      setHistoryIndex((prev) => prev + 1)
-    }
-  }, [historyIndex, history.length])
+    setState((prevState) => {
+      if (prevState.index < prevState.history.length - 1) {
+        return { ...prevState, index: prevState.index + 1 }
+      }
+      return prevState
+    })
+  }, [])
 
   const reset = useCallback((strokes: Stroke[], textBlocks: TextBlock[]) => {
-    setHistory([{ strokes, textBlocks }])
-    setHistoryIndex(0)
+    setState({
+      history: [{ strokes, textBlocks }],
+      index: 0,
+    })
   }, [])
 
   return {
@@ -96,8 +114,8 @@ export function useHistory(
     setTextBlocks,
     undo,
     redo,
-    canUndo: historyIndex > 0,
-    canRedo: historyIndex < history.length - 1,
+    canUndo: state.index > 0,
+    canRedo: state.index < state.history.length - 1,
     reset,
   }
 }
