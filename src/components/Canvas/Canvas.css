@@ -1,7 +1,7 @@
 .scroll-container {
   flex: 1;
   overflow: auto;
-  background: #e0e0e0;
+  background: var(--bg-tertiary);
   /* Allow touch scrolling */
   touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
@@ -19,7 +19,7 @@
 
 .canvas-container {
   position: relative;
-  background: #f5f5f5;
+  background: var(--bg-primary);
 }
 
 .drawing-canvas {
@@ -27,7 +27,7 @@
   top: 0;
   left: 0;
   cursor: crosshair;
-  background: #ffffff;
+  background: var(--canvas-bg);
   /* Pen/mouse draws, touch passes through for scrolling */
   touch-action: pan-x pan-y;
 }
@@ -39,7 +39,7 @@
 }
 
 .text-block.selected {
-  border: 1px solid #007aff;
+  border: 1px solid var(--accent-color);
   z-index: 10;
 }
 

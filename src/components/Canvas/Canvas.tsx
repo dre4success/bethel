@@ -1,4 +1,12 @@
-import { useRef, useEffect, useCallback, useState, memo } from 'react'
+import {
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  memo,
+  forwardRef,
+  useImperativeHandle,
+} from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { Stroke, Point, Tool, TextBlock } from '../../types'
 import { DEFAULT_FONT } from '../../types'
@@ -220,15 +228,19 @@ interface CanvasProps {
   onTextBlocksChange: (textBlocks: TextBlock[]) => void
 }
 
-export function Canvas({
-  tool,
-  color,
-  strokes,
-  textBlocks,
-  onStrokesChange,
-  onTextBlocksChange,
-}: CanvasProps) {
+export interface CanvasHandle {
+  getCanvas: () => HTMLCanvasElement | null
+}
+
+export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
+  { tool, color, strokes, textBlocks, onStrokesChange, onTextBlocksChange },
+  ref
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    getCanvas: () => canvasRef.current,
+  }))
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -467,4 +479,4 @@ export function Canvas({
       </div>
     </div>
   )
-}
+})

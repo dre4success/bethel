@@ -1,23 +1,74 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Canvas } from './components/Canvas'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Canvas, CanvasHandle } from './components/Canvas'
 import { Toolbar } from './components/Toolbar'
 import { NoteSidebar } from './components/NoteSidebar'
 import { useNotes } from './hooks/useNotes'
-import type { Tool, Stroke, TextBlock } from './types'
+import { useHistory } from './hooks/useHistory'
+import { exportToPNG, exportToSVG, exportToPDF } from './lib/export'
+import type { Tool } from './types'
 import { COLORS } from './types'
 import './App.css'
+
+const CANVAS_WIDTH = 3000
+const CANVAS_HEIGHT = 3000
+
+type Theme = 'light' | 'dark'
 
 function App() {
   const [tool, setTool] = useState<Tool>('pen')
   const [color, setColor] = useState<string>(COLORS[0])
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem('bethel-theme')
+    return (saved as Theme) || 'light'
+  })
+  const canvasRef = useRef<CanvasHandle>(null)
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('bethel-theme', theme)
+  }, [theme])
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+  }, [])
 
   const { notes, currentNote, loading, createNote, selectNote, deleteNote, renameNote, saveNote } =
     useNotes()
 
+  const { strokes, textBlocks, setStrokes, setTextBlocks, undo, redo, canUndo, canRedo, reset } =
+    useHistory(currentNote?.strokes ?? [], currentNote?.textBlocks ?? [])
+
+  // Reset history when switching notes
+  useEffect(() => {
+    if (currentNote) {
+      reset(currentNote.strokes, currentNote.textBlocks)
+    }
+  }, [currentNote?.id])
+
+  // Save to DB when strokes/textBlocks change
+  useEffect(() => {
+    if (currentNote) {
+      saveNote(strokes, textBlocks)
+    }
+  }, [strokes, textBlocks])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Undo/Redo work even in text fields
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          redo()
+        } else {
+          undo()
+        }
+        return
+      }
+
+      // Other shortcuts don't work in text fields
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return
       }
@@ -37,31 +88,35 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  const handleStrokesChange = useCallback(
-    (strokes: Stroke[]) => {
-      if (currentNote) {
-        saveNote(strokes, currentNote.textBlocks)
-      }
-    },
-    [currentNote, saveNote]
-  )
-
-  const handleTextBlocksChange = useCallback(
-    (textBlocks: TextBlock[]) => {
-      if (currentNote) {
-        saveNote(currentNote.strokes, textBlocks)
-      }
-    },
-    [currentNote, saveNote]
-  )
+  }, [undo, redo])
 
   const handleClear = useCallback(() => {
     if (currentNote && confirm('Clear all content from this note?')) {
-      saveNote([], [])
+      setStrokes([])
+      setTextBlocks([])
     }
-  }, [currentNote, saveNote])
+  }, [currentNote, setStrokes, setTextBlocks])
+
+  const handleExportPNG = useCallback(() => {
+    const canvas = canvasRef.current?.getCanvas()
+    if (canvas) {
+      const filename = `${currentNote?.title || 'note'}.png`
+      exportToPNG(canvas, textBlocks, filename)
+    }
+  }, [textBlocks, currentNote?.title])
+
+  const handleExportSVG = useCallback(() => {
+    const filename = `${currentNote?.title || 'note'}.svg`
+    exportToSVG(strokes, textBlocks, CANVAS_WIDTH, CANVAS_HEIGHT, filename)
+  }, [strokes, textBlocks, currentNote?.title])
+
+  const handleExportPDF = useCallback(async () => {
+    const canvas = canvasRef.current?.getCanvas()
+    if (canvas) {
+      const filename = `${currentNote?.title || 'note'}.pdf`
+      await exportToPDF(canvas, textBlocks, filename)
+    }
+  }, [textBlocks, currentNote?.title])
 
   if (loading) {
     return (
@@ -92,15 +147,25 @@ function App() {
           onToolChange={setTool}
           onColorChange={setColor}
           onClear={handleClear}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onExportPNG={handleExportPNG}
+          onExportSVG={handleExportSVG}
+          onExportPDF={handleExportPDF}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
 
         <Canvas
+          ref={canvasRef}
           tool={tool}
           color={color}
-          strokes={currentNote?.strokes ?? []}
-          textBlocks={currentNote?.textBlocks ?? []}
-          onStrokesChange={handleStrokesChange}
-          onTextBlocksChange={handleTextBlocksChange}
+          strokes={strokes}
+          textBlocks={textBlocks}
+          onStrokesChange={setStrokes}
+          onTextBlocksChange={setTextBlocks}
         />
       </div>
     </div>

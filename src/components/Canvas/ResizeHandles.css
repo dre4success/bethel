@@ -2,8 +2,8 @@
   position: absolute;
   width: 10px;
   height: 10px;
-  background: white;
-  border: 1px solid #007aff;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-color);
   border-radius: 2px;
   z-index: 20;
 }

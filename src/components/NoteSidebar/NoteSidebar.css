@@ -10,15 +10,15 @@
   justify-content: center;
   border: none;
   border-radius: 8px;
-  background: white;
-  color: #333;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px var(--shadow-color);
   transition: all 0.15s ease;
 }
 
 .sidebar-toggle:hover {
-  background: #f0f0f0;
+  background: var(--bg-tertiary);
 }
 
 .note-sidebar {
@@ -27,8 +27,8 @@
   left: 0;
   width: 280px;
   height: 100vh;
-  background: white;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  background: var(--bg-secondary);
+  box-shadow: 2px 0 12px var(--shadow-color);
   transform: translateX(-100%);
   transition: transform 0.3s ease;
   z-index: 200;
@@ -52,14 +52,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .sidebar-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .new-note-button {
@@ -70,14 +70,14 @@
   height: 36px;
   border: none;
   border-radius: 8px;
-  background: #007aff;
+  background: var(--accent-color);
   color: white;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .new-note-button:hover {
-  background: #0056b3;
+  opacity: 0.9;
 }
 
 .notes-list {
@@ -98,11 +98,12 @@
 }
 
 .note-item:hover {
-  background: #f5f5f5;
+  background: var(--bg-tertiary);
 }
 
 .note-item.active {
-  background: #e3f2fd;
+  background: var(--bg-tertiary);
+  border-left: 3px solid var(--accent-color);
 }
 
 .note-info {
@@ -116,7 +117,7 @@
 .note-title {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -124,7 +125,7 @@
 
 .note-date {
   font-size: 12px;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .note-actions {
@@ -147,27 +148,29 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #666;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .note-action-button:hover {
-  background: #e0e0e0;
+  background: var(--bg-tertiary);
 }
 
 .note-action-button.danger:hover {
-  background: #ffebee;
-  color: #d32f2f;
+  background: var(--danger-bg);
+  color: var(--danger-color);
 }
 
 .note-title-input {
   flex: 1;
   padding: 4px 8px;
-  border: 1px solid #007aff;
+  border: 1px solid var(--accent-color);
   border-radius: 4px;
   font-size: 14px;
   outline: none;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 @media (max-width: 768px) {
