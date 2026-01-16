@@ -17,9 +17,8 @@ interface TextBlockComponentProps {
   isSelected: boolean
   onSelect: () => void
   onStartEdit: () => void
-  onEndEdit: (content: string, width?: number, fontSize?: number) => void
+  onUpdate: (updates: Partial<TextBlock>) => void
   onDelete: () => void
-  onDragStart: (e: React.DragEvent) => void
 }
 
 const TextBlockComponent = memo(function TextBlockComponent({
@@ -28,18 +27,31 @@ const TextBlockComponent = memo(function TextBlockComponent({
   isSelected,
   onSelect,
   onStartEdit,
-  onEndEdit,
+  onUpdate,
   onDelete,
-  onDragStart,
 }: TextBlockComponentProps) {
   const [localContent, setLocalContent] = useState(block.content)
+  const [localFontSize, setLocalFontSize] = useState(block.fontSize)
+  const [localPosition, setLocalPosition] = useState({ x: block.x, y: block.y })
+  const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const blockRef = useRef<HTMLDivElement>(null)
 
   // Update local content when prop changes
   useEffect(() => {
     setLocalContent(block.content)
   }, [block.content])
+
+  // Update local font size when prop changes
+  useEffect(() => {
+    setLocalFontSize(block.fontSize)
+  }, [block.fontSize])
+
+  // Update local position when prop changes (after drag commit)
+  useEffect(() => {
+    setLocalPosition({ x: block.x, y: block.y })
+  }, [block.x, block.y])
 
   // Focus when editing starts
   useEffect(() => {
@@ -59,19 +71,61 @@ const TextBlockComponent = memo(function TextBlockComponent({
 
   useEffect(() => {
     adjustHeight()
-  }, [localContent, adjustHeight, block.fontSize, block.width])
+  }, [localContent, adjustHeight, localFontSize, block.width])
 
   const handleBlur = () => {
     if (isEditing) {
       if (!localContent.trim()) {
         onDelete()
       } else {
-        onEndEdit(localContent)
+        onUpdate({ content: localContent })
       }
     }
   }
 
-  // Handle Resize Logic (Scaling Font Size)
+  // Pointer-based dragging - use local state during drag, commit on release
+  const handleDragStart = (e: React.PointerEvent) => {
+    if (isEditing || isResizing) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    setIsDragging(true)
+    onSelect()
+
+    const startX = e.clientX
+    const startY = e.clientY
+    const startBlockX = block.x
+    const startBlockY = block.y
+
+    const target = e.currentTarget as HTMLElement
+    target.setPointerCapture(e.pointerId)
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const dx = moveEvent.clientX - startX
+      const dy = moveEvent.clientY - startY
+      // Update local position for smooth dragging
+      setLocalPosition({ x: startBlockX + dx, y: startBlockY + dy })
+    }
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      const dx = upEvent.clientX - startX
+      const dy = upEvent.clientY - startY
+      const finalX = startBlockX + dx
+      const finalY = startBlockY + dy
+      // Keep local position at final spot, commit to parent
+      setLocalPosition({ x: finalX, y: finalY })
+      onUpdate({ x: finalX, y: finalY })
+      setIsDragging(false)
+      target.releasePointerCapture(e.pointerId)
+      document.removeEventListener('pointermove', handlePointerMove)
+      document.removeEventListener('pointerup', handlePointerUp)
+    }
+
+    document.addEventListener('pointermove', handlePointerMove)
+    document.addEventListener('pointerup', handlePointerUp)
+  }
+
+  // Handle Resize Logic - use local font size during resize, commit on release
   const handleResizeStart = (idx: number, e: React.PointerEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -80,15 +134,8 @@ const TextBlockComponent = memo(function TextBlockComponent({
     const startY = e.clientY
     const startFontSize = block.fontSize
 
-    // We determine scale based on diagonal movement
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      moveEvent.preventDefault()
-      const dx = moveEvent.clientX - startX
-      const dy = moveEvent.clientY - startY
-
+    const calcNewSize = (dx: number, dy: number) => {
       // idx: 0=nw, 1=ne, 2=se, 3=sw
-
       let scaleFactor = 1
       if (idx === 2) {
         // SE
@@ -103,16 +150,21 @@ const TextBlockComponent = memo(function TextBlockComponent({
         // NW
         scaleFactor = (-dx - dy) / 2
       }
-
-      const newSize = Math.max(12, startFontSize + scaleFactor * 0.5)
-
-      // Directly update parent logic via prop for instant feedback might be expensive
-      // optimize by updating local state then committing on up?
-      // Since this is resize, realtime feedback is critical.
-      onEndEdit(localContent, undefined, newSize)
+      return Math.max(12, startFontSize + scaleFactor * 0.5)
     }
 
-    const handlePointerUp = () => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault()
+      const dx = moveEvent.clientX - startX
+      const dy = moveEvent.clientY - startY
+      setLocalFontSize(calcNewSize(dx, dy))
+    }
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      const dx = upEvent.clientX - startX
+      const dy = upEvent.clientY - startY
+      // Commit final font size to parent
+      onUpdate({ fontSize: calcNewSize(dx, dy) })
       setIsResizing(false)
       document.removeEventListener('pointermove', handlePointerMove)
       document.removeEventListener('pointerup', handlePointerUp)
@@ -124,22 +176,18 @@ const TextBlockComponent = memo(function TextBlockComponent({
 
   return (
     <div
-      className={`text-block ${isSelected ? 'selected' : ''} ${isEditing ? 'editing' : ''}`}
+      ref={blockRef}
+      className={`text-block ${isSelected ? 'selected' : ''} ${isEditing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
       style={{
-        left: block.x,
-        top: block.y,
+        left: localPosition.x,
+        top: localPosition.y,
         width: block.width,
       }}
-      onPointerDown={(e) => {
-        e.stopPropagation()
-        onSelect()
-      }}
+      onPointerDown={handleDragStart}
       onDoubleClick={(e) => {
         e.stopPropagation()
         onStartEdit()
       }}
-      draggable={!isEditing && !isResizing}
-      onDragStart={onDragStart}
     >
       <textarea
         ref={textareaRef}
@@ -150,7 +198,7 @@ const TextBlockComponent = memo(function TextBlockComponent({
         rows={1}
         style={{
           color: block.color,
-          fontSize: block.fontSize,
+          fontSize: localFontSize,
           fontFamily: block.fontFamily,
           fontWeight: 600,
           overflow: 'hidden',
@@ -365,22 +413,13 @@ export function Canvas({
     [isDrawing, strokes, onStrokesChange]
   )
 
-  const handleTextEndEdit = useCallback(
-    (id: string, content: string, width?: number, fontSize?: number) => {
-      onTextBlocksChange(
-        textBlocks.map((tb) =>
-          tb.id === id
-            ? {
-                ...tb,
-                content,
-                width: width || tb.width,
-                fontSize: fontSize || tb.fontSize,
-              }
-            : tb
-        )
-      )
-      // Only clear editing, not selecting
-      if (editingTextId === id) setEditingTextId(null)
+  const handleTextUpdate = useCallback(
+    (id: string, updates: Partial<TextBlock>) => {
+      onTextBlocksChange(textBlocks.map((tb) => (tb.id === id ? { ...tb, ...updates } : tb)))
+      // Clear editing if content was updated (blur)
+      if (updates.content !== undefined && editingTextId === id) {
+        setEditingTextId(null)
+      }
     },
     [textBlocks, onTextBlocksChange, editingTextId]
   )
@@ -393,31 +432,11 @@ export function Canvas({
     [textBlocks, onTextBlocksChange]
   )
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      const id = e.dataTransfer.getData('textBlockId')
-      if (!id) return
-
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      const rect = canvas.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-
-      onTextBlocksChange(textBlocks.map((tb) => (tb.id === id ? { ...tb, x, y } : tb)))
-    },
-    [textBlocks, onTextBlocksChange]
-  )
-
   return (
     <div ref={scrollContainerRef} className="scroll-container">
       <div
         ref={containerRef}
         className="canvas-container"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleDrop}
         style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
       >
         <canvas
@@ -441,17 +460,8 @@ export function Canvas({
               setEditingTextId(block.id)
               setSelectedTextId(block.id)
             }}
-            onEndEdit={(content, width, fontSize) =>
-              handleTextEndEdit(block.id, content, width, fontSize)
-            }
+            onUpdate={(updates) => handleTextUpdate(block.id, updates)}
             onDelete={() => handleTextDelete(block.id)}
-            onDragStart={(e) => {
-              // Only drag if selected or idle.
-              // We need to set drag data
-              e.dataTransfer.setData('textBlockId', block.id)
-              e.dataTransfer.effectAllowed = 'move'
-              if (selectedTextId !== block.id) setSelectedTextId(block.id)
-            }}
           />
         ))}
       </div>

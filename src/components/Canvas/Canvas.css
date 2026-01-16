@@ -44,8 +44,13 @@
 }
 
 .text-block.editing {
-  /* No visual change for editing, just focus */
   z-index: 11;
+}
+
+.text-block.dragging {
+  opacity: 0.9;
+  cursor: grabbing;
+  will-change: transform;
 }
 
 .text-block textarea {
@@ -62,12 +67,10 @@
   cursor: grab;
 }
 
-.text-block.editing textarea {
-  cursor: text;
-  border-color: transparent;
+.text-block.dragging textarea {
+  cursor: grabbing;
 }
 
 .text-block.editing textarea {
-  border-color: transparent;
-  /* Parent has the border */
+  cursor: text;
 }
