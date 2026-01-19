@@ -6,7 +6,7 @@ import { useNotes } from './hooks/useNotes'
 import { useHistory } from './hooks/useHistory'
 import { exportToPNG, exportToPDF, exportToSVG } from './lib/export'
 import type { Tool } from './types'
-import { COLORS } from './types'
+import { COLORS, DEFAULT_FONT } from './types'
 import './App.css'
 
 type Theme = 'light' | 'dark'
@@ -14,6 +14,7 @@ type Theme = 'light' | 'dark'
 function App() {
   const [tool, setTool] = useState<Tool>('pen')
   const [color, setColor] = useState<string>(COLORS[0])
+  const [font, setFont] = useState<string>(DEFAULT_FONT)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('bethel-theme')
@@ -141,8 +142,10 @@ function App() {
         <Toolbar
           tool={tool}
           color={color}
+          font={font}
           onToolChange={setTool}
           onColorChange={setColor}
+          onFontChange={setFont}
           onClear={handleClear}
           onUndo={undo}
           onRedo={redo}
@@ -159,6 +162,7 @@ function App() {
           ref={canvasRef}
           tool={tool}
           color={color}
+          font={font}
           strokes={strokes}
           textBlocks={textBlocks}
           onStrokesChange={setStrokes}

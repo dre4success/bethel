@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import type { Tool } from '../../types'
-import { COLORS } from '../../types'
+import { COLORS, FONTS } from '../../types'
 import './Toolbar.css'
 
 interface ToolbarProps {
   tool: Tool
   color: string
+  font: string
   onToolChange: (tool: Tool) => void
   onColorChange: (color: string) => void
+  onFontChange: (font: string) => void
   onClear: () => void
   onUndo: () => void
   onRedo: () => void
@@ -23,8 +25,10 @@ interface ToolbarProps {
 export function Toolbar({
   tool,
   color,
+  font,
   onToolChange,
   onColorChange,
+  onFontChange,
   onClear,
   onUndo,
   onRedo,
@@ -37,6 +41,7 @@ export function Toolbar({
   onToggleTheme,
 }: ToolbarProps) {
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [showFontMenu, setShowFontMenu] = useState(false)
   return (
     <div className="toolbar">
       <div className="toolbar-section">
@@ -96,6 +101,33 @@ export function Toolbar({
             <line x1="12" y1="4" x2="12" y2="20" />
           </svg>
         </button>
+
+        <div className="font-dropdown">
+          <button
+            className="tool-button font-button"
+            onClick={() => setShowFontMenu(!showFontMenu)}
+            title="Font"
+          >
+            <span style={{ fontFamily: font, fontSize: '16px', fontWeight: 600 }}>Aa</span>
+          </button>
+          {showFontMenu && (
+            <div className="font-menu">
+              {FONTS.map((f) => (
+                <button
+                  key={f.name}
+                  className={font === f.value ? 'active' : ''}
+                  style={{ fontFamily: f.value }}
+                  onClick={() => {
+                    onFontChange(f.value)
+                    setShowFontMenu(false)
+                  }}
+                >
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="toolbar-divider" />

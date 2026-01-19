@@ -9,7 +9,6 @@ import {
 } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { Stroke, Point, Tool, TextBlock } from '../../types'
-import { DEFAULT_FONT } from '../../types'
 import { drawStroke, redrawCanvas, getRenderColor } from '../../lib/stroke'
 import './Canvas.css'
 
@@ -224,6 +223,7 @@ const TextBlockComponent = memo(function TextBlockComponent({
 interface CanvasProps {
   tool: Tool
   color: string
+  font: string
   strokes: Stroke[]
   textBlocks: TextBlock[]
   onStrokesChange: (strokes: Stroke[]) => void
@@ -236,7 +236,7 @@ export interface CanvasHandle {
 }
 
 export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
-  { tool, color, strokes, textBlocks, onStrokesChange, onTextBlocksChange, theme },
+  { tool, color, font, strokes, textBlocks, onStrokesChange, onTextBlocksChange, theme },
   ref
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -250,6 +250,18 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const currentStrokeRef = useRef<Stroke | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
+
+  // Update font of currently editing text block when font changes
+  useEffect(() => {
+    if (editingTextId) {
+      const block = textBlocks.find((tb) => tb.id === editingTextId)
+      if (block && block.fontFamily !== font) {
+        onTextBlocksChange(
+          textBlocks.map((tb) => (tb.id === editingTextId ? { ...tb, fontFamily: font } : tb))
+        )
+      }
+    }
+  }, [font, editingTextId])
 
   // Initialize canvas with fixed size
   useEffect(() => {
@@ -440,7 +452,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           content: '',
           fontSize: 24,
           color: color,
-          fontFamily: DEFAULT_FONT,
+          fontFamily: font,
         }
         onTextBlocksChange([...textBlocks, newTextBlock])
         setEditingTextId(newTextBlock.id)
@@ -461,7 +473,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       currentStrokeRef.current = null
       setIsDrawing(false)
     },
-    [isDrawing, strokes, onStrokesChange, tool, color, textBlocks, getPointerPosition]
+    [isDrawing, strokes, onStrokesChange, tool, color, font, textBlocks, getPointerPosition]
   )
 
   const handleTextUpdate = useCallback(

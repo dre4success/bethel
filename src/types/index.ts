@@ -52,7 +52,21 @@ export const COLORS = [
   '#AF52DE', // Purple
 ] as const
 
-export const DEFAULT_FONT = "'Kalam', cursive"
+export const FONTS = [
+  { name: 'Kalam', value: "'Kalam', cursive" },
+  { name: 'Caveat', value: "'Caveat', cursive" },
+  { name: 'Patrick Hand', value: "'Patrick Hand', cursive" },
+  { name: 'Indie Flower', value: "'Indie Flower', cursive" },
+  { name: 'Architects Daughter', value: "'Architects Daughter', cursive" },
+  { name: 'Shadows Into Light', value: "'Shadows Into Light', cursive" },
+  { name: 'Permanent Marker', value: "'Permanent Marker', cursive" },
+  { name: 'Gloria Hallelujah', value: "'Gloria Hallelujah', cursive" },
+  { name: 'Homemade Apple', value: "'Homemade Apple', cursive" },
+  { name: 'Reenie Beanie', value: "'Reenie Beanie', cursive" },
+  { name: 'Neucha', value: "'Neucha', cursive" },
+] as const
+
+export const DEFAULT_FONT = FONTS[0].value
 
 export const MIN_STROKE_WIDTH = 1
 export const MAX_STROKE_WIDTH = 12
