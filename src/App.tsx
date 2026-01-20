@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { Canvas, CanvasHandle } from './components/Canvas'
 import { Toolbar } from './components/Toolbar'
 import { NoteSidebar } from './components/NoteSidebar'
@@ -12,6 +13,7 @@ import './App.css'
 type Theme = 'light' | 'dark'
 
 function App() {
+  const navigate = useNavigate()
   const [tool, setTool] = useState<Tool>('pen')
   const [color, setColor] = useState<string>(COLORS[0])
   const [font, setFont] = useState<string>(DEFAULT_FONT)
@@ -21,6 +23,10 @@ function App() {
     return (saved as Theme) || 'light'
   })
   const canvasRef = useRef<CanvasHandle>(null)
+
+  const handleCreateRoom = useCallback(() => {
+    navigate({ to: '/room/new' })
+  }, [navigate])
 
   // Apply theme to document
   useEffect(() => {
@@ -139,6 +145,24 @@ function App() {
       />
 
       <div className="main-content">
+        <div className="app-header">
+          <button className="create-room-button" onClick={handleCreateRoom}>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Create Collaborative Room
+          </button>
+        </div>
         <Toolbar
           tool={tool}
           color={color}

@@ -13,6 +13,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@tanstack/react-router": "^1.153.2",
     "dexie": "^4.2.1",
     "jspdf": "^4.0.0",
     "react": "^19.2.0",

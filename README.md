@@ -1,73 +1,132 @@
-# React + TypeScript + Vite
+# Bethel
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A collaborative note-taking app with stylus support, real-time sync, and handwritten text.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Pen and eraser tools with pressure sensitivity
+- Text blocks with 11 handwritten font options
+- Real-time collaboration via WebSocket
+- Shareable room links
+- Export to PNG, SVG, PDF
+- Dark mode support
+- Local notes with IndexedDB persistence
 
-## React Compiler
+## Prerequisites
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- [Node.js](https://nodejs.org/) (v18+)
+- [Go](https://golang.org/) (v1.21+)
+- [Docker](https://www.docker.com/) (for PostgreSQL)
+- [Atlas](https://atlasgo.io/) (for database migrations)
 
-## Expanding the ESLint configuration
+### Install Atlas (macOS)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+brew install ariga/tap/atlas
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Quick Start
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 1. Start PostgreSQL
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+docker compose up -d
 ```
+
+### 2. Apply Database Migrations
+
+```bash
+cd server
+atlas schema apply --env docker --auto-approve
+```
+
+### 3. Start the Backend
+
+```bash
+cd server
+go run main.go
+```
+
+The server runs on `http://localhost:8080`.
+
+### 4. Start the Frontend
+
+In a new terminal:
+
+```bash
+npm install
+npm run dev
+```
+
+The app runs on `http://localhost:5173`.
+
+## Usage
+
+### Local Mode
+
+- Open `http://localhost:5173`
+- Create and manage notes in the sidebar
+- Draw with pen, erase, or add text blocks
+- Notes are saved locally in IndexedDB
+
+### Collaborative Mode
+
+1. Click **"Create Collaborative Room"** in the header
+2. Share the URL with others
+3. Draw and edit together in real-time
+4. See other participants' cursors
+
+## Project Structure
+
+```
+bethel/
+├── src/                    # React frontend
+│   ├── components/         # UI components
+│   ├── hooks/              # React hooks
+│   ├── lib/                # Utilities (WebSocket, export)
+│   ├── pages/              # Route pages
+│   └── types/              # TypeScript types
+├── server/                 # Go backend
+│   ├── db/                 # Database connection
+│   ├── handlers/           # HTTP/WebSocket handlers
+│   ├── hub/                # WebSocket hub & rooms
+│   ├── models/             # Data models
+│   ├── schema.sql          # Database schema
+│   └── atlas.hcl           # Atlas config
+└── docker-compose.yml      # PostgreSQL container
+```
+
+## Environment Variables
+
+### Backend (server/)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `postgres://postgres:postgres@localhost:5432/bethel?sslmode=disable` | PostgreSQL connection string |
+| `PORT` | `8080` | Server port |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | CORS allowed origins |
+
+### Frontend
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_URL` | `http://localhost:8080` | Backend API URL |
+
+## Development
+
+### Build Frontend
+
+```bash
+npm run build
+```
+
+### Build Backend
+
+```bash
+cd server
+go build -o bethel-server .
+```
+
+## License
+
+MIT

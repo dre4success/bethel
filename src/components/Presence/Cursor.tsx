@@ -31,3 +31,24 @@ export const Cursor = memo(function Cursor({ x, y, color, name }: CursorProps) {
     </div>
   )
 })
+
+interface CursorPosition {
+  participantId: string
+  x: number
+  y: number
+  color: string
+}
+
+interface RemoteCursorsProps {
+  cursors: CursorPosition[]
+}
+
+export const RemoteCursors = memo(function RemoteCursors({ cursors }: RemoteCursorsProps) {
+  return (
+    <>
+      {cursors.map((cursor) => (
+        <Cursor key={cursor.participantId} x={cursor.x} y={cursor.y} color={cursor.color} />
+      ))}
+    </>
+  )
+})

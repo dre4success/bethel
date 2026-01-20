@@ -21,7 +21,8 @@ func main() {
 
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		databaseURL = "postgres://postgres:postgres@localhost:5432/bethel?sslmode=disable"
+		// Default to 5433 because 5432 is often occupied (docker-compose maps 5433->5432)
+		databaseURL = "postgres://postgres:postgres@localhost:5433/bethel?sslmode=disable"
 	}
 
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
