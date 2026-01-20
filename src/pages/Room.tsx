@@ -203,61 +203,15 @@ export function Room() {
             font={font}
             strokes={strokes}
             textBlocks={textBlocks}
+            onStrokeAdded={addStroke}
             onStrokesChange={(newStrokes) => {
-              // Detect new strokes by comparing with current state
-              if (newStrokes.length > strokes.length) {
-                const newStroke = newStrokes[newStrokes.length - 1]
-                addStroke(newStroke)
-              } else {
-                // Handle other changes (shouldn't happen often)
-                setStrokesLocal(newStrokes)
-              }
+              // Just update local state for now
+              setStrokesLocal(newStrokes)
             }}
-            onTextBlocksChange={(newTextBlocks) => {
-              // Detect adds, updates, deletes
-              const existingIds = new Set(textBlocks.map((tb) => tb.id))
-              const newIds = new Set(newTextBlocks.map((tb) => tb.id))
-
-              // Check for new blocks
-              const addedBlock = newTextBlocks.find((tb) => !existingIds.has(tb.id))
-              if (addedBlock) {
-                addTextBlock(addedBlock)
-                return
-              }
-
-              // Check for deleted blocks
-              const deletedBlock = textBlocks.find((tb) => !newIds.has(tb.id))
-              if (deletedBlock) {
-                deleteTextBlock(deletedBlock.id)
-                return
-              }
-
-              // Check for updates
-              for (const newBlock of newTextBlocks) {
-                const oldBlock = textBlocks.find((tb) => tb.id === newBlock.id)
-                if (oldBlock) {
-                  // Check if anything changed
-                  const changes: Partial<typeof newBlock> = {}
-                  if (oldBlock.x !== newBlock.x) changes.x = newBlock.x
-                  if (oldBlock.y !== newBlock.y) changes.y = newBlock.y
-                  if (oldBlock.width !== newBlock.width) changes.width = newBlock.width
-                  if (oldBlock.height !== newBlock.height) changes.height = newBlock.height
-                  if (oldBlock.content !== newBlock.content) changes.content = newBlock.content
-                  if (oldBlock.fontSize !== newBlock.fontSize) changes.fontSize = newBlock.fontSize
-                  if (oldBlock.color !== newBlock.color) changes.color = newBlock.color
-                  if (oldBlock.fontFamily !== newBlock.fontFamily)
-                    changes.fontFamily = newBlock.fontFamily
-
-                  if (Object.keys(changes).length > 0) {
-                    updateTextBlock(newBlock.id, changes)
-                    return
-                  }
-                }
-              }
-
-              // Default: just update local
-              setTextBlocksLocal(newTextBlocks)
-            }}
+            onTextBlockAdded={addTextBlock}
+            onTextBlockUpdated={updateTextBlock}
+            onTextBlockDeleted={deleteTextBlock}
+            onTextBlocksChange={setTextBlocksLocal}
             theme={theme}
           />
           <RemoteCursors cursors={cursors} />

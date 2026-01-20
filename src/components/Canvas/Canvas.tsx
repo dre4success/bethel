@@ -48,15 +48,19 @@ const TextBlockComponent = memo(function TextBlockComponent({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const blockRef = useRef<HTMLDivElement>(null)
 
-  // Update local content when prop changes
+  // Update local content when prop changes, BUT NOT if editing
   useEffect(() => {
-    setLocalContent(block.content)
-  }, [block.content])
+    if (!isEditing) {
+      setLocalContent(block.content)
+    }
+  }, [block.content, isEditing])
 
-  // Update local font size when prop changes
+  // Update local font size when prop changes (safe, usually)
   useEffect(() => {
-    setLocalFontSize(block.fontSize)
-  }, [block.fontSize])
+    if (!isEditing) {
+      setLocalFontSize(block.fontSize)
+    }
+  }, [block.fontSize, isEditing])
 
   // Update local position when prop changes (after drag commit)
   useEffect(() => {
@@ -83,11 +87,34 @@ const TextBlockComponent = memo(function TextBlockComponent({
     adjustHeight()
   }, [localContent, adjustHeight, localFontSize, block.width])
 
+  // Debounce ref for real-time updates
+  const debounceTimeoutRef = useRef<number | null>(null)
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value
+    setLocalContent(newContent)
+
+    // Clear existing timeout
+    if (debounceTimeoutRef.current) {
+      window.clearTimeout(debounceTimeoutRef.current)
+    }
+
+    // Debounce update to server (100ms for responsiveness)
+    debounceTimeoutRef.current = window.setTimeout(() => {
+      onUpdate({ content: newContent })
+    }, 100)
+  }
+
   const handleBlur = () => {
     if (isEditing) {
+      if (debounceTimeoutRef.current) {
+        window.clearTimeout(debounceTimeoutRef.current)
+      }
+
       if (!localContent.trim()) {
         onDelete()
       } else {
+        // Ensure final state is saved
         onUpdate({ content: localContent })
       }
     }
@@ -201,7 +228,7 @@ const TextBlockComponent = memo(function TextBlockComponent({
       <textarea
         ref={textareaRef}
         value={localContent}
-        onChange={(e) => setLocalContent(e.target.value)}
+        onChange={handleChange}
         onBlur={handleBlur}
         readOnly={!isEditing}
         rows={1}
@@ -229,6 +256,10 @@ interface CanvasProps {
   onStrokesChange: (strokes: Stroke[]) => void
   onTextBlocksChange: (textBlocks: TextBlock[]) => void
   theme?: 'light' | 'dark'
+  onStrokeAdded?: (stroke: Stroke) => void
+  onTextBlockAdded?: (textBlock: TextBlock) => void
+  onTextBlockUpdated?: (id: string, updates: Partial<TextBlock>) => void
+  onTextBlockDeleted?: (id: string) => void
 }
 
 export interface CanvasHandle {
@@ -236,7 +267,20 @@ export interface CanvasHandle {
 }
 
 export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
-  { tool, color, font, strokes, textBlocks, onStrokesChange, onTextBlocksChange, theme },
+  {
+    tool,
+    color,
+    font,
+    strokes,
+    textBlocks,
+    onStrokesChange,
+    onTextBlocksChange,
+    theme,
+    onStrokeAdded,
+    onTextBlockAdded,
+    onTextBlockUpdated,
+    onTextBlockDeleted,
+  },
   ref
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -438,6 +482,12 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           color: color,
           fontFamily: font,
         }
+
+        // Immediately notify parent of new block
+        if (onTextBlockAdded) {
+          onTextBlockAdded(newTextBlock)
+        }
+
         onTextBlocksChange([...textBlocks, newTextBlock])
         setEditingTextId(newTextBlock.id)
         setSelectedTextId(newTextBlock.id)
@@ -451,27 +501,65 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
       // Save stroke (both pen and eraser strokes)
       if (currentStrokeRef.current.points.length > 1) {
+        console.log('Canvas: finishing stroke', currentStrokeRef.current.id)
+        // Explicitly fire onStrokeAdded if provided
+        if (onStrokeAdded) {
+          onStrokeAdded(currentStrokeRef.current)
+        }
+        // Also fire full change for controlled component usage (unless onStrokeAdded handles state)
         onStrokesChange([...strokes, currentStrokeRef.current])
       }
 
       currentStrokeRef.current = null
       setIsDrawing(false)
     },
-    [isDrawing, strokes, onStrokesChange, tool, color, font, textBlocks, getPointerPosition]
+    [
+      isDrawing,
+      strokes,
+      onStrokesChange,
+      tool,
+      color,
+      font,
+      textBlocks,
+      getPointerPosition,
+      onStrokeAdded,
+      onTextBlockAdded,
+    ]
   )
 
   const handleTextUpdate = useCallback(
     (id: string, updates: Partial<TextBlock>) => {
+      // Find the block to verify it exists and get complete data if needed
+      const block = textBlocks.find((b) => b.id === id)
+      if (block && onTextBlockUpdated) {
+        onTextBlockUpdated(id, updates)
+      }
       onTextBlocksChange(textBlocks.map((tb) => (tb.id === id ? { ...tb, ...updates } : tb)))
     },
-    [textBlocks, onTextBlocksChange]
+    [textBlocks, onTextBlocksChange, onTextBlockUpdated]
   )
 
   const handleTextEndEdit = useCallback(
     (id: string, content: string, width?: number, fontSize?: number) => {
       if (!content.trim()) {
+        if (onTextBlockDeleted) {
+          onTextBlockDeleted(id)
+        }
         onTextBlocksChange(textBlocks.filter((tb) => tb.id !== id))
       } else {
+        const updates = {
+          content,
+          width,
+          fontSize,
+        }
+        // Filter out undefined values
+        if (width === undefined) delete updates.width
+        if (fontSize === undefined) delete updates.fontSize
+
+        if (onTextBlockUpdated) {
+          onTextBlockUpdated(id, updates)
+        }
+
         onTextBlocksChange(
           textBlocks.map((tb) =>
             tb.id === id
@@ -487,15 +575,18 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       }
       setEditingTextId(null)
     },
-    [textBlocks, onTextBlocksChange]
+    [textBlocks, onTextBlocksChange, onTextBlockDeleted, onTextBlockUpdated]
   )
 
   const handleTextDelete = useCallback(
     (id: string) => {
+      if (onTextBlockDeleted) {
+        onTextBlockDeleted(id)
+      }
       onTextBlocksChange(textBlocks.filter((tb) => tb.id !== id))
       setEditingTextId(null)
     },
-    [textBlocks, onTextBlocksChange]
+    [textBlocks, onTextBlocksChange, onTextBlockDeleted]
   )
 
   return (
