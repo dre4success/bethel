@@ -27,9 +27,10 @@ brew install ariga/tap/atlas
 
 ## Quick Start
 
-### 1. Start PostgreSQL
+### 1. Start PostgreSQL & pgAdmin
 
 ```bash
+docker compose down # If previously running
 docker compose up -d
 ```
 
@@ -54,6 +55,7 @@ The server runs on `http://localhost:8080`.
 In a new terminal:
 
 ```bash
+cd client
 npm install
 npm run dev
 ```
@@ -76,26 +78,32 @@ The app runs on `http://localhost:5173`.
 3. Draw and edit together in real-time
 4. See other participants' cursors
 
+### Database Management
+
+- Open **pgAdmin** at `http://localhost:5050`
+- Login: `admin@bethel.com` / `admin`
+- The database **"Bethel DB"** is automatically registered.
+
 ## Project Structure
 
 ```
 bethel/
-├── src/                    # React frontend
-│   ├── components/         # UI components
-│   ├── hooks/              # React hooks
-│   ├── lib/                # Utilities (WebSocket, export)
-│   ├── pages/              # Route pages
-│   └── types/              # TypeScript types
+├── client/                 # [NEW] React frontend
+│   ├── src/                # UI components, hooks, pages
+│   ├── public/             # Static assets
+│   ├── package.json        # Frontend dependencies
+│   └── vite.config.ts      # Vite config
 ├── server/                 # Go backend
 │   ├── db/                 # Database connection
 │   ├── handlers/           # HTTP/WebSocket handlers
 │   ├── hub/                # WebSocket hub & rooms
 │   ├── models/             # Data models
+│   ├── main.go             # Entry point
 │   ├── schema.sql          # Database schema
 │   └── atlas.hcl           # Atlas config
-└── docker-compose.yml      # PostgreSQL container
+├── docker-compose.yml      # PostgreSQL & pgAdmin containers
+└── servers.json            # pgAdmin auto-config
 ```
-
 ## Environment Variables
 
 ### Backend (server/)
