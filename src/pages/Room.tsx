@@ -30,6 +30,7 @@ export function Room() {
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const canvasRef = useRef<CanvasHandle>(null)
+  const creatingRef = useRef(false) // Prevent double creation in StrictMode
 
   // Apply theme to document
   useEffect(() => {
@@ -44,7 +45,13 @@ export function Room() {
   // Create new room if navigated to /room/new
   useEffect(() => {
     if (roomId === 'new' || !roomId) {
+      // Prevent double creation in StrictMode
+      if (creatingRef.current) {
+        return
+      }
+      creatingRef.current = true
       setCreating(true)
+
       fetch(`${API_BASE}/api/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,10 +62,12 @@ export function Room() {
             navigate({ to: '/room/$roomId', params: { roomId: data.id } })
           } else {
             setError('Failed to create room')
+            creatingRef.current = false
           }
         })
         .catch((err) => {
           setError(`Failed to create room: ${err.message}`)
+          creatingRef.current = false
         })
         .finally(() => setCreating(false))
     }
@@ -82,7 +91,7 @@ export function Room() {
     setTextBlocksLocal,
   } = useCollaboration({
     roomId: roomId && roomId !== 'new' ? roomId : null,
-    onError: (err) => setError(err),
+    onError: useCallback((err: string) => setError(err), []),
   })
 
   // Handle cursor movement on canvas
@@ -195,13 +204,12 @@ export function Room() {
             strokes={strokes}
             textBlocks={textBlocks}
             onStrokesChange={(newStrokes) => {
-              // Find the new stroke that was added
-              const existingIds = new Set(strokes.map((s) => s.id))
-              const newStroke = newStrokes.find((s) => !existingIds.has(s.id))
-              if (newStroke) {
+              // Detect new strokes by comparing with current state
+              if (newStrokes.length > strokes.length) {
+                const newStroke = newStrokes[newStrokes.length - 1]
                 addStroke(newStroke)
               } else {
-                // Just update local state for now
+                // Handle other changes (shouldn't happen often)
                 setStrokesLocal(newStrokes)
               }
             }}

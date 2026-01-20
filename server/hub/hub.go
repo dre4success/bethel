@@ -66,7 +66,6 @@ func (h *Hub) Run() {
 
 func (h *Hub) registerClient(client *Client) {
 	h.RoomsMu.Lock()
-	defer h.RoomsMu.Unlock()
 
 	// Create room if it doesn't exist
 	if h.Rooms[client.RoomID] == nil {
@@ -82,14 +81,16 @@ func (h *Hub) registerClient(client *Client) {
 
 	log.Printf("Client %s joined room %s (total: %d)", client.ID, client.RoomID, len(h.Rooms[client.RoomID]))
 
-	// Send room state to the new client
-	go h.sendRoomState(client)
-
-	// Notify other clients in the room
-	h.broadcastToRoom(client.RoomID, &ServerMessage{
+	// Notify other clients in the room (while holding lock, use unsafe version)
+	h.broadcastToRoomUnsafe(client.RoomID, &ServerMessage{
 		Type:        "participant_join",
 		Participant: &Participant{ID: client.ID, Color: client.Color, Name: client.Name},
 	}, client)
+
+	h.RoomsMu.Unlock()
+
+	// Send room state to the new client (after releasing lock)
+	go h.sendRoomState(client)
 }
 
 func (h *Hub) unregisterClient(client *Client) {

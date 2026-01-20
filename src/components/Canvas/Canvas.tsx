@@ -251,18 +251,6 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
 
-  // Update font of currently editing text block when font changes
-  useEffect(() => {
-    if (editingTextId) {
-      const block = textBlocks.find((tb) => tb.id === editingTextId)
-      if (block && block.fontFamily !== font) {
-        onTextBlocksChange(
-          textBlocks.map((tb) => (tb.id === editingTextId ? { ...tb, fontFamily: font } : tb))
-        )
-      }
-    }
-  }, [font, editingTextId])
-
   // Initialize canvas with fixed size
   useEffect(() => {
     const canvas = canvasRef.current
@@ -437,12 +425,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
       // Verify Tap for Text Tool
       if (tool === 'text' && tapStartRef.current && tapStartRef.current.id === e.pointerId) {
-        // It's a valid tap! Create text block.
+        // ... (existing text logic)
         const point = getPointerPosition(e)
-        // Use the event position (up) or stored (down)? Up is fine if movement was small.
-        // Actually, let's use the 'down' position logic via getPointerPosition on the current event
-        // which gives us the location relative to canvas.
-
         const newTextBlock: TextBlock = {
           id: uuidv4(),
           x: point.x,
@@ -461,7 +445,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         tapStartRef.current = null
         return
       }
-      tapStartRef.current = null // Clear ref if it wasn't a match or tool changed
+      tapStartRef.current = null
 
       if (!isDrawing || !currentStrokeRef.current) return
 

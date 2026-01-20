@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -89,47 +90,47 @@ func UpdateTextBlock(ctx context.Context, pool *pgxpool.Pool, id string, updates
 	argNum := 2
 
 	if updates.X != nil {
-		query += `, x = $` + string(rune('0'+argNum))
+		query += fmt.Sprintf(", x = $%d", argNum)
 		args = append(args, *updates.X)
 		argNum++
 	}
 	if updates.Y != nil {
-		query += `, y = $` + string(rune('0'+argNum))
+		query += fmt.Sprintf(", y = $%d", argNum)
 		args = append(args, *updates.Y)
 		argNum++
 	}
 	if updates.Width != nil {
-		query += `, width = $` + string(rune('0'+argNum))
+		query += fmt.Sprintf(", width = $%d", argNum)
 		args = append(args, *updates.Width)
 		argNum++
 	}
 	if updates.Height != nil {
-		query += `, height = $` + string(rune('0'+argNum))
+		query += fmt.Sprintf(", height = $%d", argNum)
 		args = append(args, *updates.Height)
 		argNum++
 	}
 	if updates.Content != nil {
-		query += `, content = $` + string(rune('0'+argNum))
+		query += fmt.Sprintf(", content = $%d", argNum)
 		args = append(args, *updates.Content)
 		argNum++
 	}
 	if updates.FontSize != nil {
-		query += `, font_size = $` + string(rune('0'+argNum))
+		query += fmt.Sprintf(", font_size = $%d", argNum)
 		args = append(args, *updates.FontSize)
 		argNum++
 	}
 	if updates.Color != nil {
-		query += `, color = $` + string(rune('0'+argNum))
+		query += fmt.Sprintf(", color = $%d", argNum)
 		args = append(args, *updates.Color)
 		argNum++
 	}
 	if updates.FontFamily != nil {
-		query += `, font_family = $` + string(rune('0'+argNum))
+		query += fmt.Sprintf(", font_family = $%d", argNum)
 		args = append(args, *updates.FontFamily)
 		argNum++
 	}
 
-	query += ` WHERE id = $` + string(rune('0'+argNum))
+	query += fmt.Sprintf(" WHERE id = $%d", argNum)
 	args = append(args, id)
 
 	_, err := pool.Exec(ctx, query, args...)

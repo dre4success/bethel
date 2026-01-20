@@ -66,6 +66,7 @@ export class WebSocketClient {
   private maxReconnectAttempts: number
   private reconnectAttempts = 0
   private reconnectTimeout: number | null = null
+  private isDestroyed = false
   private isIntentionalClose = false
 
   constructor(options: WebSocketClientOptions) {
@@ -80,7 +81,7 @@ export class WebSocketClient {
   }
 
   connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.isDestroyed || this.ws?.readyState === WebSocket.OPEN) {
       return
     }
 
@@ -88,12 +89,17 @@ export class WebSocketClient {
     this.ws = new WebSocket(wsUrl)
 
     this.ws.onopen = () => {
+      if (this.isDestroyed) {
+        this.ws?.close()
+        return
+      }
       console.log('WebSocket connected to room:', this.roomId)
       this.reconnectAttempts = 0
       this.onConnect?.()
     }
 
     this.ws.onmessage = (event) => {
+      if (this.isDestroyed) return
       try {
         const message = JSON.parse(event.data) as ServerMessage
         this.onMessage(message)
@@ -103,6 +109,7 @@ export class WebSocketClient {
     }
 
     this.ws.onclose = () => {
+      if (this.isDestroyed) return
       console.log('WebSocket disconnected')
       this.onDisconnect?.()
 
@@ -112,14 +119,17 @@ export class WebSocketClient {
     }
 
     this.ws.onerror = (error) => {
+      if (this.isDestroyed) return
       console.error('WebSocket error:', error)
       this.onError?.(error)
     }
   }
 
   private attemptReconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('Max reconnect attempts reached')
+    if (this.isDestroyed || this.reconnectAttempts >= this.maxReconnectAttempts) {
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        console.log('Max reconnect attempts reached')
+      }
       return
     }
 
@@ -132,6 +142,7 @@ export class WebSocketClient {
   }
 
   disconnect(): void {
+    this.isDestroyed = true
     this.isIntentionalClose = true
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout)
@@ -187,6 +198,6 @@ export class WebSocketClient {
 // Helper to get WebSocket URL based on current environment
 export function getWebSocketUrl(): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = import.meta.env.VITE_WS_HOST || 'localhost:8080'
+  const host = import.meta.env.VITE_WS_HOST || '127.0.0.1:8080'
   return `${protocol}//${host}`
 }

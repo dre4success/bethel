@@ -169,14 +169,18 @@ export function useCollaboration({
       onError: () => onError?.('WebSocket connection error'),
     })
 
-    client.connect()
-    wsRef.current = client
+    // Small delay to allow strict mode unmount to happen before real connect
+    const timer = setTimeout(() => {
+      client.connect()
+      wsRef.current = client
+    }, 100)
 
     return () => {
+      clearTimeout(timer)
       client.disconnect()
       wsRef.current = null
     }
-  }, [roomId, handleMessage, onError])
+  }, [roomId])
 
   // Action functions
   const addStroke = useCallback((stroke: Stroke) => {
