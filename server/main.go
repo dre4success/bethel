@@ -27,7 +27,7 @@ func main() {
 
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
-		allowedOrigins = "http://localhost:5173"
+		allowedOrigins = "http://localhost:5173,http://192.168.7.43:5173"
 	}
 
 	// Initialize database

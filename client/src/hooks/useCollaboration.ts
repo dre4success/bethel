@@ -169,13 +169,28 @@ export function useCollaboration({
       onError: () => onError?.('WebSocket connection error'),
     })
 
-    // Small delay to allow strict mode unmount to happen before real connect
+    let isCancelled = false
     const timer = setTimeout(() => {
-      client.connect()
-      wsRef.current = client
-    }, 100)
+      if (!isCancelled) {
+        client.connect()
+        wsRef.current = client
+      }
+    }, 300)
+
+    // Handle tab visibility changes (iPad/Mobile switching)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && wsRef.current) {
+        // Force immediate reconnect check if visible
+        // (WebSocketClient.connect handles deduplication)
+        wsRef.current.connect()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
+      isCancelled = true
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       clearTimeout(timer)
       client.disconnect()
       wsRef.current = null

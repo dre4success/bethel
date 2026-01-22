@@ -27,7 +27,7 @@ brew install ariga/tap/atlas
 
 ## Quick Start
 
-### 1. Start PostgreSQL & pgAdmin
+### 1. Start PostgreSQL & Adminer
 
 ```bash
 docker compose down # If previously running
@@ -80,9 +80,12 @@ The app runs on `http://localhost:5173`.
 
 ### Database Management
 
-- Open **pgAdmin** at `http://localhost:5050`
-- Login: `admin@bethel.com` / `admin`
-- The database **"Bethel DB"** is automatically registered.
+- Open **Adminer** at `http://localhost:3334`
+- System: `PostgreSQL`
+- Server: `postgres`
+- Username: `postgres`
+- Password: `postgres`
+- Database: `bethel`
 
 ## Project Structure
 

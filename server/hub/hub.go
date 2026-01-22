@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/dre4success/bethel/server/models"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -120,9 +121,22 @@ func (h *Hub) unregisterClient(client *Client) {
 }
 
 func (h *Hub) sendRoomState(client *Client) {
+	// Recover from panic if sending to a closed channel (client disconnected quickly)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in sendRoomState: %v", r)
+		}
+	}()
+
 	ctx := context.Background()
 
+    start := time.Now()
 	roomState, err := models.GetRoomState(ctx, h.DB, client.RoomID)
+    duration := time.Since(start)
+    if duration > 100 * time.Millisecond {
+        log.Printf("GetRoomState took %v for room %s", duration, client.RoomID)
+    }
+
 	if err != nil {
 		log.Printf("Failed to get room state: %v", err)
 		// Send empty state for new rooms

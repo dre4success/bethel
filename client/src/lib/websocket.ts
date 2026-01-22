@@ -81,8 +81,17 @@ export class WebSocketClient {
   }
 
   connect(): void {
-    if (this.isDestroyed || this.ws?.readyState === WebSocket.OPEN) {
+    if (this.isDestroyed) return
+
+    // Don't connect if already connected or connecting
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return
+    }
+
+    // Clear any pending reconnect attempt since we are connecting now
+    if (this.reconnectTimeout) {
+      window.clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
     }
 
     const wsUrl = `${this.url}/ws/${this.roomId}`
@@ -198,6 +207,13 @@ export class WebSocketClient {
 // Helper to get WebSocket URL based on current environment
 export function getWebSocketUrl(): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = import.meta.env.VITE_WS_HOST || '127.0.0.1:8080'
-  return `${protocol}//${host}`
+
+  // specific override (e.g. for production)
+  if (import.meta.env.VITE_WS_HOST) {
+    return `${protocol}//${import.meta.env.VITE_WS_HOST}`
+  }
+
+  // Development / Local Network: use current hostname + server port
+  // This allows connecting from other devices (e.g. iPad at 192.168.x.x)
+  return `${protocol}//${window.location.hostname}:8080`
 }
