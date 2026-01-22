@@ -8,6 +8,7 @@ export type ClientMessage =
   | { type: 'text_update'; textBlockId: string; updates: Partial<TextBlock> }
   | { type: 'text_delete'; textBlockId: string }
   | { type: 'cursor_move'; x: number; y: number }
+  | { type: 'room_update'; roomTitle: string }
   | { type: 'clear_all' }
 
 // Message types from server to client
@@ -36,6 +37,7 @@ export type ServerMessage =
   | { type: 'text_update'; textBlockId: string; updates: Partial<TextBlock>; participantId: string }
   | { type: 'text_delete'; textBlockId: string; participantId: string }
   | { type: 'cursor_move'; participantId: string; x: number; y: number; color: string }
+  | { type: 'room_update'; roomTitle: string; participantId: string }
   | { type: 'participant_join'; participant: Participant }
   | { type: 'participant_leave'; participantId: string }
   | { type: 'clear_all'; participantId: string }
@@ -117,13 +119,15 @@ export class WebSocketClient {
       }
     }
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (event) => {
       if (this.isDestroyed) return
-      console.log('WebSocket disconnected')
-      this.onDisconnect?.()
+      console.log('WebSocket disconnected', event.code, event.reason)
 
       if (!this.isIntentionalClose) {
+        this.onDisconnect?.()
         this.attemptReconnect()
+      } else {
+        this.onDisconnect?.()
       }
     }
 
@@ -134,7 +138,7 @@ export class WebSocketClient {
     }
   }
 
-  private attemptReconnect(): void {
+  private attemptReconnect(customDelay?: number): void {
     if (this.isDestroyed || this.reconnectAttempts >= this.maxReconnectAttempts) {
       if (this.reconnectAttempts >= this.maxReconnectAttempts) {
         console.log('Max reconnect attempts reached')
@@ -143,11 +147,12 @@ export class WebSocketClient {
     }
 
     this.reconnectAttempts++
-    console.log(`Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts}...`)
+    const delay = customDelay ?? this.reconnectInterval
+    console.log(`Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms...`)
 
     this.reconnectTimeout = window.setTimeout(() => {
       this.connect()
-    }, this.reconnectInterval)
+    }, delay)
   }
 
   disconnect(): void {
@@ -193,6 +198,10 @@ export class WebSocketClient {
 
   moveCursor(x: number, y: number): void {
     this.send({ type: 'cursor_move', x, y })
+  }
+
+  updateRoomTitle(roomTitle: string): void {
+    this.send({ type: 'room_update', roomTitle })
   }
 
   clearAll(): void {

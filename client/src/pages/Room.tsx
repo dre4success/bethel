@@ -3,7 +3,7 @@ import { useParams, useNavigate } from '@tanstack/react-router'
 import { Canvas, CanvasHandle } from '../components/Canvas'
 import { Toolbar } from '../components/Toolbar'
 import { useCollaboration } from '../hooks/useCollaboration'
-import { ParticipantList, ConnectionStatus } from '../components/Presence/ParticipantList'
+import { ParticipantList } from '../components/Presence/ParticipantList'
 import { RemoteCursors } from '../components/Presence/Cursor'
 import { exportToPNG, exportToPDF, exportToSVG } from '../lib/export'
 import type { Tool } from '../types'
@@ -12,13 +12,84 @@ import '../App.css'
 
 type Theme = 'light' | 'dark'
 
+const ConnectionIndicator = ({ isConnected }: { isConnected: boolean }) => (
+  <div style={{
+    fontSize: '12px',
+    color: isConnected ? '#4caf50' : '#ff9800',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px'
+  }}>
+    <div style={{
+      width: '8px',
+      height: '8px',
+      borderRadius: '50%',
+      backgroundColor: isConnected ? '#4caf50' : '#ff9800',
+      boxShadow: isConnected ? '0 0 4px #4caf50' : 'none'
+    }} />
+    {isConnected ? 'Connected' : 'Connecting...'}
+  </div>
+)
+
+function EditableTitle({ title, onUpdate }: { title: string; onUpdate: (t: string) => void }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [localTitle, setLocalTitle] = useState(title)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setLocalTitle(title)
+  }, [title])
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  const handleBlur = () => {
+    setIsEditing(false)
+    if (localTitle.trim() && localTitle !== title) {
+      onUpdate(localTitle)
+    } else {
+      setLocalTitle(title)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      inputRef.current?.blur()
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <input
+        ref={inputRef}
+        className="room-title-input"
+        value={localTitle}
+        onChange={(e) => setLocalTitle(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+      />
+    )
+  }
+
+  return (
+    <h2 className="room-title editable" onClick={() => setIsEditing(true)} title="Click to rename">
+      {title}
+    </h2>
+  )
+}
+
 // API base URL for room creation
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+// Use environment variable or derive from current hostname (for iPad/mobile access)
+const API_BASE = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8080`
 
 export function Room() {
   const params = useParams({ strict: false })
   const navigate = useNavigate()
-  const roomId = params.roomId as string | undefined
+  const urlRoomId = params.roomId as string | undefined
 
   const [tool, setTool] = useState<Tool>('pen')
   const [color, setColor] = useState<string>(COLORS[0])
@@ -44,7 +115,7 @@ export function Room() {
 
   // Create new room if navigated to /room/new
   useEffect(() => {
-    if (roomId === 'new' || !roomId) {
+    if (urlRoomId === 'new' || !urlRoomId) {
       // Prevent double creation in StrictMode
       if (creatingRef.current) {
         return
@@ -59,7 +130,7 @@ export function Room() {
         .then((res) => res.json())
         .then((data) => {
           if (data.id) {
-            navigate({ to: '/room/$roomId', params: { roomId: data.id } })
+            navigate({ to: '/room/$roomId', params: { roomId: data.id }, replace: true })
           } else {
             setError('Failed to create room')
             creatingRef.current = false
@@ -71,7 +142,7 @@ export function Room() {
         })
         .finally(() => setCreating(false))
     }
-  }, [roomId, navigate])
+  }, [urlRoomId])
 
   // Use collaboration hook
   const {
@@ -86,11 +157,12 @@ export function Room() {
     deleteTextBlock,
     addTextBlock,
     moveCursor,
+    updateRoomTitle,
     clearAll,
     setStrokesLocal,
     setTextBlocksLocal,
   } = useCollaboration({
-    roomId: roomId && roomId !== 'new' ? roomId : null,
+    roomId: (urlRoomId === 'new' || !urlRoomId) ? null : urlRoomId,
     onError: useCallback((err: string) => setError(err), []),
   })
 
@@ -141,7 +213,7 @@ export function Room() {
   }, [])
 
   // Show loading while creating room
-  if (creating || roomId === 'new' || !roomId) {
+  if (creating || !urlRoomId || urlRoomId === 'new') {
     return (
       <div className="loading">
         <div className="loading-spinner" />
@@ -155,7 +227,7 @@ export function Room() {
     return (
       <div className="loading">
         <p style={{ color: 'red' }}>{error}</p>
-        <button onClick={() => navigate({ to: '/' })}>Go Back</button>
+        <button onClick={() => window.location.href = '/'}>Go Back</button>
       </div>
     )
   }
@@ -165,14 +237,14 @@ export function Room() {
       <div className="main-content">
         <div className="room-header">
           <div className="room-info">
-            <h2 className="room-title">{roomTitle}</h2>
+            <EditableTitle title={roomTitle} onUpdate={updateRoomTitle} />
             <button className="share-button" onClick={copyShareLink}>
               Share Link
             </button>
           </div>
           <div className="room-status">
             <ParticipantList participants={participants} />
-            <ConnectionStatus isConnected={isConnected} />
+            <ConnectionIndicator isConnected={isConnected} />
           </div>
         </div>
 
@@ -184,8 +256,8 @@ export function Room() {
           onColorChange={setColor}
           onFontChange={setFont}
           onClear={handleClear}
-          onUndo={() => {}} // Undo/redo not supported in collaborative mode yet
-          onRedo={() => {}}
+          onUndo={() => { }} // Undo/redo not supported in collaborative mode yet
+          onRedo={() => { }}
           canUndo={false}
           canRedo={false}
           onExportPNG={handleExportPNG}

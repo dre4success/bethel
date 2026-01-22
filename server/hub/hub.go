@@ -147,14 +147,20 @@ func (h *Hub) sendRoomState(client *Client) {
 		}
 	}
 
-	// Get current participants
+	// Get current participants and verify client is still connected
 	h.RoomsMu.RLock()
+    // Verify client is still in the room (prevent sending on closed channel)
+    room, roomExists := h.Rooms[client.RoomID]
+    if !roomExists || !room[client] {
+        h.RoomsMu.RUnlock()
+        log.Printf("Client %s disconnected before room state could be sent", client.ID)
+        return
+    }
+
 	var participants []Participant
-	if room, ok := h.Rooms[client.RoomID]; ok {
-		for c := range room {
-			participants = append(participants, c.ToParticipant())
-		}
-	}
+    for c := range room {
+        participants = append(participants, c.ToParticipant())
+    }
 	h.RoomsMu.RUnlock()
 
 	msg := &ServerMessage{
@@ -168,6 +174,13 @@ func (h *Hub) sendRoomState(client *Client) {
 		log.Printf("Failed to marshal room state: %v", err)
 		return
 	}
+
+    // Recover from panic just in case
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in sendRoomState: %v", r)
+		}
+	}()
 
 	select {
 	case client.Send <- data:

@@ -25,6 +25,9 @@ type ClientMessage struct {
 	// For cursor
 	X float64 `json:"x,omitempty"`
 	Y float64 `json:"y,omitempty"`
+
+	// For room updates
+	RoomTitle string `json:"roomTitle,omitempty"`
 }
 
 // ServerMessage represents messages from server to client
@@ -54,6 +57,9 @@ type ServerMessage struct {
 	Y     float64 `json:"y,omitempty"`
 	Color string  `json:"color,omitempty"`
 
+	// For room updates
+	RoomTitle string `json:"roomTitle,omitempty"`
+
 	// For errors
 	Error string `json:"error,omitempty"`
 }
@@ -80,6 +86,9 @@ func (h *Hub) HandleMessage(client *Client, msg *ClientMessage) {
 
 	case "cursor_move":
 		h.handleCursorMove(client, msg)
+
+	case "room_update":
+		h.handleRoomUpdate(ctx, client, msg)
 
 	case "clear_all":
 		h.handleClearAll(ctx, client)
@@ -233,6 +242,25 @@ func (h *Hub) handleClearAll(ctx context.Context, client *Client) {
 			}
 		}
 	}
+}
+
+func (h *Hub) handleRoomUpdate(ctx context.Context, client *Client, msg *ClientMessage) {
+	if msg.RoomTitle == "" {
+		return
+	}
+
+	// Persist to database
+	if err := models.UpdateRoomTitle(ctx, h.DB, client.RoomID, msg.RoomTitle); err != nil {
+		log.Printf("Failed to update room title: %v", err)
+		return
+	}
+
+	// Broadcast to other clients (optimistic update on sender side)
+	h.broadcastToRoom(client.RoomID, &ServerMessage{
+		Type:          "room_update",
+		RoomTitle:     msg.RoomTitle,
+		ParticipantID: client.ID,
+	}, client)
 }
 
 func (h *Hub) sendError(client *Client, errMsg string) {

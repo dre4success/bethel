@@ -36,6 +36,7 @@ interface UseCollaborationReturn {
   updateTextBlock: (textBlockId: string, updates: Partial<TextBlock>) => void
   deleteTextBlock: (textBlockId: string) => void
   moveCursor: (x: number, y: number) => void
+  updateRoomTitle: (title: string) => void
   clearAll: () => void
 
   // For local-only updates (don't broadcast)
@@ -86,6 +87,9 @@ export function useCollaboration({
           break
         case 'participant_leave':
           handleParticipantLeave(message.participantId)
+          break
+        case 'room_update':
+          handleRoomUpdate(message.roomTitle)
           break
         case 'clear_all':
           handleClearAll()
@@ -153,6 +157,10 @@ export function useCollaboration({
     setTextBlocks([])
   }
 
+  const handleRoomUpdate = (roomTitle: string) => {
+    setRoomTitle(roomTitle)
+  }
+
   // Connect/disconnect based on roomId
   useEffect(() => {
     if (!roomId) {
@@ -170,12 +178,16 @@ export function useCollaboration({
     })
 
     let isCancelled = false
+    let isConnected = false
+
+    // Short delay to handle React StrictMode's immediate unmount/remount
     const timer = setTimeout(() => {
       if (!isCancelled) {
         client.connect()
         wsRef.current = client
+        isConnected = true
       }
-    }, 300)
+    }, 100)
 
     // Handle tab visibility changes (iPad/Mobile switching)
     const handleVisibilityChange = () => {
@@ -192,8 +204,12 @@ export function useCollaboration({
       isCancelled = true
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       clearTimeout(timer)
-      client.disconnect()
-      wsRef.current = null
+      // Only disconnect if this effect instance actually connected
+      // and this client is still the current one
+      if (isConnected && wsRef.current === client) {
+        client.disconnect()
+        wsRef.current = null
+      }
     }
   }, [roomId])
 
@@ -227,6 +243,11 @@ export function useCollaboration({
     wsRef.current?.moveCursor(x, y)
   }, [])
 
+  const updateRoomTitle = useCallback((title: string) => {
+    setRoomTitle(title)
+    wsRef.current?.updateRoomTitle(title)
+  }, [])
+
   const clearAll = useCallback(() => {
     setStrokes([])
     setTextBlocks([])
@@ -255,6 +276,7 @@ export function useCollaboration({
     updateTextBlock,
     deleteTextBlock,
     moveCursor,
+    updateRoomTitle,
     clearAll,
     setStrokesLocal,
     setTextBlocksLocal,

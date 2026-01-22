@@ -564,11 +564,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           textBlocks.map((tb) =>
             tb.id === id
               ? {
-                  ...tb,
-                  content,
-                  width: width ?? tb.width,
-                  fontSize: fontSize ?? tb.fontSize,
-                }
+                ...tb,
+                content,
+                width: width ?? tb.width,
+                fontSize: fontSize ?? tb.fontSize,
+              }
               : tb
           )
         )

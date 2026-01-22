@@ -63,6 +63,31 @@
   color: var(--text-primary);
 }
 
+.room-title.editable {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+.room-title.editable:hover {
+  border-color: var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.room-title-input {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  padding: 2px 6px;
+  outline: none;
+  font-family: inherit;
+  width: 200px;
+}
+
 .share-button {
   padding: 6px 12px;
   background: var(--accent-color, #007aff);

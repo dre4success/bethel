@@ -97,6 +97,15 @@ func UpdateRoomTimestamp(ctx context.Context, pool *pgxpool.Pool, id string) err
 	return err
 }
 
+// UpdateRoomTitle updates the room's title
+func UpdateRoomTitle(ctx context.Context, pool *pgxpool.Pool, id string, title string) error {
+	_, err := pool.Exec(ctx,
+		`UPDATE rooms SET title = $1, updated_at = $2 WHERE id = $3`,
+		title, time.Now(), id,
+	)
+	return err
+}
+
 // DeleteRoom deletes a room and all its content (cascade)
 func DeleteRoom(ctx context.Context, pool *pgxpool.Pool, id string) error {
 	_, err := pool.Exec(ctx, `DELETE FROM rooms WHERE id = $1`, id)
