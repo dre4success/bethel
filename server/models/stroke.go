@@ -41,7 +41,8 @@ func CreateStroke(ctx context.Context, pool *pgxpool.Pool, stroke *Stroke) error
 
 	_, err = pool.Exec(ctx,
 		`INSERT INTO strokes (id, room_id, points, color, tool, created_at, created_by)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT (id) DO NOTHING`,
 		stroke.ID, stroke.RoomID, pointsJSON, stroke.Color, stroke.Tool, stroke.CreatedAt, stroke.CreatedBy,
 	)
 	return err

@@ -7,6 +7,7 @@ import {
   type Participant,
   type RoomState,
 } from '../lib/websocket'
+import { SyncService } from '../services/sync'
 
 interface CursorPosition {
   participantId: string
@@ -42,6 +43,7 @@ interface UseCollaborationReturn {
   // For local-only updates (don't broadcast)
   setStrokesLocal: (strokes: Stroke[]) => void
   setTextBlocksLocal: (textBlocks: TextBlock[]) => void
+  isDisconnectedPermanently: boolean
 }
 
 export function useCollaboration({
@@ -53,15 +55,35 @@ export function useCollaboration({
   const [participants, setParticipants] = useState<Participant[]>([])
   const [cursors, setCursors] = useState<CursorPosition[]>([])
   const [isConnected, setIsConnected] = useState(false)
+  const [isDisconnectedPermanently, setIsDisconnectedPermanently] = useState(false)
   const [roomTitle, setRoomTitle] = useState('Untitled')
 
   const wsRef = useRef<WebSocketClient | null>(null)
+
+  // Load local data on mount
+  useEffect(() => {
+    if (roomId) {
+      SyncService.loadRoom(roomId).then((data) => {
+        if (data.room) {
+          setRoomTitle(data.room.title)
+        }
+        setStrokes(data.strokes)
+        setTextBlocks(data.textBlocks)
+      })
+    }
+  }, [roomId])
 
   // Handle incoming messages
   const handleMessage = useCallback(
     (message: ServerMessage) => {
       switch (message.type) {
         case 'room_state':
+          // Merge server state with local state?
+          // For now, let's just accept server state as truth if valid
+          // But since we might have pending local changes, this is tricky.
+          // Simplest approach: Server state overrides initial local state for now.
+          // In a true CRDT setup, we'd merge.
+          // Here, we'll just update if we get new data.
           handleRoomState(message.roomState, message.participants)
           break
         case 'stroke_add':
@@ -103,31 +125,80 @@ export function useCollaboration({
   )
 
   // Message handlers
-  const handleRoomState = (roomState: RoomState, roomParticipants: Participant[]) => {
-    setStrokes(roomState.strokes || [])
-    setTextBlocks(roomState.textBlocks || [])
+  const handleRoomState = async (roomState: RoomState, roomParticipants: Participant[]) => {
+    // 1. Get pending local changes
+    let pendingStrokes: Stroke[] = []
+    let pendingTextBlocks: TextBlock[] = []
+    let deletedStrokeIds = new Set<string>()
+    let deletedTextBlockIds = new Set<string>()
+
+    if (roomId) {
+      const pending = await SyncService.getPendingState(roomId)
+      pendingStrokes = pending.pendingStrokes
+      pendingTextBlocks = pending.pendingTextBlocks
+      deletedStrokeIds = pending.deletedStrokeIds
+      deletedTextBlockIds = pending.deletedTextBlockIds
+    }
+
+    // 2. Merge: Server State + Pending Local Changes
+
+    // Strokes
+    const serverStrokes = (roomState.strokes || []).filter(s => !deletedStrokeIds.has(s.id))
+    const strokeMap = new Map<string, Stroke>()
+    serverStrokes.forEach(s => strokeMap.set(s.id, s))
+    pendingStrokes.forEach(s => strokeMap.set(s.id, s)) // Local overwrites server
+    const uniqueStrokes = Array.from(strokeMap.values())
+
+    // Text Blocks
+    const serverTextBlocks = (roomState.textBlocks || []).filter(tb => !deletedTextBlockIds.has(tb.id))
+    const textBlockMap = new Map<string, TextBlock>()
+    serverTextBlocks.forEach(tb => textBlockMap.set(tb.id, tb))
+    pendingTextBlocks.forEach(tb => textBlockMap.set(tb.id, tb)) // Local overwrites server
+    const uniqueTextBlocks = Array.from(textBlockMap.values())
+
+    setStrokes(uniqueStrokes)
+    setTextBlocks(uniqueTextBlocks)
     setParticipants(roomParticipants || [])
-    setRoomTitle(roomState.room.title)
+    if (roomState.room) setRoomTitle(roomState.room.title)
+
+    // Also save to local DB to keep it fresh
+    if (roomId && roomState.room) {
+      SyncService.touchRoom(roomId, roomState.room.title)
+      roomState.strokes?.forEach(s => SyncService.saveStroke(s, true))
+      roomState.textBlocks?.forEach(tb => SyncService.saveTextBlock(tb, true))
+    }
   }
 
   const handleStrokeAdd = (stroke: Stroke) => {
-    setStrokes((prev) => [...prev, stroke])
+    setStrokes((prev) => {
+      // Avoid duplicates
+      if (prev.find(s => s.id === stroke.id)) return prev
+      return [...prev, stroke]
+    })
+    SyncService.saveStroke(stroke, true)
   }
 
   const handleStrokeUpdate = (strokeId: string, points: Point[]) => {
     setStrokes((prev) => prev.map((s) => (s.id === strokeId ? { ...s, points } : s)))
+    if (roomId) SyncService.updateStroke(strokeId, points, roomId, true)
   }
 
   const handleTextAdd = (textBlock: TextBlock) => {
-    setTextBlocks((prev) => [...prev, textBlock])
+    setTextBlocks((prev) => {
+      if (prev.find(tb => tb.id === textBlock.id)) return prev
+      return [...prev, textBlock]
+    })
+    SyncService.saveTextBlock(textBlock, true)
   }
 
   const handleTextUpdate = (textBlockId: string, updates: Partial<TextBlock>) => {
     setTextBlocks((prev) => prev.map((tb) => (tb.id === textBlockId ? { ...tb, ...updates } : tb)))
+    if (roomId) SyncService.updateTextBlock(textBlockId, updates, roomId, true)
   }
 
   const handleTextDelete = (textBlockId: string) => {
     setTextBlocks((prev) => prev.filter((tb) => tb.id !== textBlockId))
+    if (roomId) SyncService.deleteTextBlock(textBlockId, roomId, true)
   }
 
   const handleCursorMove = (participantId: string, x: number, y: number, color: string) => {
@@ -155,10 +226,12 @@ export function useCollaboration({
   const handleClearAll = () => {
     setStrokes([])
     setTextBlocks([])
+    // TODO: Handle clear all in sync service if needed
   }
 
   const handleRoomUpdate = (roomTitle: string) => {
     setRoomTitle(roomTitle)
+    if (roomId) SyncService.updateRoomTitle(roomId, roomTitle, true)
   }
 
   // Connect/disconnect based on roomId
@@ -172,9 +245,14 @@ export function useCollaboration({
       url: wsUrl,
       roomId,
       onMessage: handleMessage,
-      onConnect: () => setIsConnected(true),
+      onConnect: () => {
+        setIsConnected(true)
+        // Trigger sync when connected
+        SyncService.sync(client, roomId)
+      },
       onDisconnect: () => setIsConnected(false),
-      onError: () => onError?.('WebSocket connection error'),
+      onError: () => console.warn('WebSocket connection failed - working offline'),
+      onMaxReconnectAttempts: () => setIsDisconnectedPermanently(true),
     })
 
     let isCancelled = false
@@ -192,8 +270,6 @@ export function useCollaboration({
     // Handle tab visibility changes (iPad/Mobile switching)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && wsRef.current) {
-        // Force immediate reconnect check if visible
-        // (WebSocketClient.connect handles deduplication)
         wsRef.current.connect()
       }
     }
@@ -204,8 +280,6 @@ export function useCollaboration({
       isCancelled = true
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       clearTimeout(timer)
-      // Only disconnect if this effect instance actually connected
-      // and this client is still the current one
       if (isConnected && wsRef.current === client) {
         client.disconnect()
         wsRef.current = null
@@ -216,42 +290,64 @@ export function useCollaboration({
   // Action functions
   const addStroke = useCallback((stroke: Stroke) => {
     setStrokes((prev) => [...prev, stroke])
-    wsRef.current?.addStroke(stroke)
+    if (wsRef.current?.isConnected) {
+      wsRef.current?.addStroke(stroke)
+    }
+    SyncService.saveStroke(stroke) // Save locally + queue if offline (implied by service logic usually, but here service handles queueing)
   }, [])
 
   const updateStroke = useCallback((strokeId: string, points: Point[]) => {
     setStrokes((prev) => prev.map((s) => (s.id === strokeId ? { ...s, points } : s)))
-    wsRef.current?.updateStroke(strokeId, points)
-  }, [])
+    if (wsRef.current?.isConnected) {
+      wsRef.current?.updateStroke(strokeId, points)
+    }
+    if (roomId) SyncService.updateStroke(strokeId, points, roomId)
+  }, [roomId])
 
   const addTextBlock = useCallback((textBlock: TextBlock) => {
     setTextBlocks((prev) => [...prev, textBlock])
-    wsRef.current?.addTextBlock(textBlock)
+    if (wsRef.current?.isConnected) {
+      wsRef.current?.addTextBlock(textBlock)
+    }
+    SyncService.saveTextBlock(textBlock)
   }, [])
 
   const updateTextBlock = useCallback((textBlockId: string, updates: Partial<TextBlock>) => {
     setTextBlocks((prev) => prev.map((tb) => (tb.id === textBlockId ? { ...tb, ...updates } : tb)))
-    wsRef.current?.updateTextBlock(textBlockId, updates)
-  }, [])
+    if (wsRef.current?.isConnected) {
+      wsRef.current?.updateTextBlock(textBlockId, updates)
+    }
+    if (roomId) SyncService.updateTextBlock(textBlockId, updates, roomId)
+  }, [roomId])
 
   const deleteTextBlock = useCallback((textBlockId: string) => {
     setTextBlocks((prev) => prev.filter((tb) => tb.id !== textBlockId))
-    wsRef.current?.deleteTextBlock(textBlockId)
-  }, [])
+    if (wsRef.current?.isConnected) {
+      wsRef.current?.deleteTextBlock(textBlockId)
+    }
+    if (roomId) SyncService.deleteTextBlock(textBlockId, roomId)
+  }, [roomId])
 
   const moveCursor = useCallback((x: number, y: number) => {
-    wsRef.current?.moveCursor(x, y)
+    if (wsRef.current?.isConnected) {
+      wsRef.current?.moveCursor(x, y)
+    }
   }, [])
 
   const updateRoomTitle = useCallback((title: string) => {
     setRoomTitle(title)
-    wsRef.current?.updateRoomTitle(title)
-  }, [])
+    if (wsRef.current?.isConnected) {
+      wsRef.current?.updateRoomTitle(title)
+    }
+    if (roomId) SyncService.updateRoomTitle(roomId, title)
+  }, [roomId])
 
   const clearAll = useCallback(() => {
     setStrokes([])
     setTextBlocks([])
-    wsRef.current?.clearAll()
+    if (wsRef.current?.isConnected) {
+      wsRef.current?.clearAll()
+    }
   }, [])
 
   // Local-only setters (for when we need to update without broadcasting)
@@ -280,5 +376,6 @@ export function useCollaboration({
     clearAll,
     setStrokesLocal,
     setTextBlocksLocal,
+    isDisconnectedPermanently,
   }
 }

@@ -28,7 +28,7 @@ func CreateRoom(pool *pgxpool.Pool) http.HandlerFunc {
 			req.Title = generateFunName()
 		}
 
-		room, err := models.CreateRoom(r.Context(), pool, req.Title)
+		room, err := models.CreateRoom(r.Context(), pool, "", req.Title)
 		if err != nil {
 			http.Error(w, "Failed to create room", http.StatusInternalServerError)
 			return

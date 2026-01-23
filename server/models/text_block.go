@@ -47,7 +47,8 @@ func CreateTextBlock(ctx context.Context, pool *pgxpool.Pool, tb *TextBlock) err
 
 	_, err := pool.Exec(ctx,
 		`INSERT INTO text_blocks (id, room_id, x, y, width, height, content, font_size, color, font_family, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		 ON CONFLICT (id) DO NOTHING`,
 		tb.ID, tb.RoomID, tb.X, tb.Y, tb.Width, tb.Height, tb.Content, tb.FontSize, tb.Color, tb.FontFamily, tb.CreatedAt, tb.UpdatedAt,
 	)
 	return err

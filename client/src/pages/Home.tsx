@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
+import { generateRoomId } from '../utils/id'
 import { RecentRoomsService, RecentRoom } from '../services/recentRooms'
 import { API_BASE } from '../config'
 import './Home.css'
@@ -26,9 +27,12 @@ export function Home() {
         }
       })
       .catch((err) => {
-        alert('Failed to create room: ' + err.message)
-        setIsCreating(false)
+        console.error(`Failed to create room on server: ${err.message}. Falling back to local room.`)
+        // Fallback to local room creation
+        const localId = generateRoomId()
+        navigate({ to: '/room/$roomId', params: { roomId: localId } })
       })
+      .finally(() => setIsCreating(false))
   }
 
   const handleDelete = (e: React.MouseEvent, id: string) => {

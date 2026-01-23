@@ -6,6 +6,8 @@ export interface Point {
 
 export interface Stroke {
   id: string
+  items?: never // phantom property to distinguish from other types if needed, but not doing that now.
+  roomId: string
   points: Point[]
   color: string
   tool: 'pen' | 'eraser'
@@ -13,6 +15,7 @@ export interface Stroke {
 
 export interface TextBlock {
   id: string
+  roomId: string
   x: number
   y: number
   width: number

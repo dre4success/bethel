@@ -54,6 +54,7 @@ interface WebSocketClientOptions {
   onError?: (error: Event) => void
   reconnectInterval?: number
   maxReconnectAttempts?: number
+  onMaxReconnectAttempts?: () => void
 }
 
 export class WebSocketClient {
@@ -64,6 +65,7 @@ export class WebSocketClient {
   private onConnect?: () => void
   private onDisconnect?: () => void
   private onError?: (error: Event) => void
+  private onMaxReconnectAttempts?: () => void
   private reconnectInterval: number
   private maxReconnectAttempts: number
   private reconnectAttempts = 0
@@ -80,6 +82,7 @@ export class WebSocketClient {
     this.onError = options.onError
     this.reconnectInterval = options.reconnectInterval ?? 3000
     this.maxReconnectAttempts = options.maxReconnectAttempts ?? 10
+    this.onMaxReconnectAttempts = options.onMaxReconnectAttempts
   }
 
   connect(): void {
@@ -142,6 +145,7 @@ export class WebSocketClient {
     if (this.isDestroyed || this.reconnectAttempts >= this.maxReconnectAttempts) {
       if (this.reconnectAttempts >= this.maxReconnectAttempts) {
         console.log('Max reconnect attempts reached')
+        this.onMaxReconnectAttempts?.()
       }
       return
     }

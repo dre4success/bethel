@@ -70,6 +70,22 @@ func RunMigrations(pool *pgxpool.Pool) error {
 		// Indexes
 		`CREATE INDEX IF NOT EXISTS idx_strokes_room ON strokes(room_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_text_blocks_room ON text_blocks(room_id)`,
+
+		// Migrations (Idempotent)
+		`DO $$ 
+		BEGIN 
+			IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'rooms' AND column_name = 'id' AND character_maximum_length < 36) THEN
+				ALTER TABLE text_blocks DROP CONSTRAINT IF EXISTS text_blocks_room_id_fkey;
+				ALTER TABLE strokes DROP CONSTRAINT IF EXISTS strokes_room_id_fkey;
+				
+				ALTER TABLE rooms ALTER COLUMN id TYPE VARCHAR(36);
+				ALTER TABLE strokes ALTER COLUMN room_id TYPE VARCHAR(36);
+				ALTER TABLE text_blocks ALTER COLUMN room_id TYPE VARCHAR(36);
+				
+				ALTER TABLE strokes ADD CONSTRAINT strokes_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE;
+				ALTER TABLE text_blocks ADD CONSTRAINT text_blocks_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE;
+			END IF;
+		END $$;`,
 	}
 
 	for _, migration := range migrations {

@@ -248,6 +248,7 @@ const TextBlockComponent = memo(function TextBlockComponent({
 })
 
 interface CanvasProps {
+  roomId: string
   tool: Tool
   color: string
   font: string
@@ -268,6 +269,7 @@ export interface CanvasHandle {
 
 export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   {
+    roomId,
     tool,
     color,
     font,
@@ -419,6 +421,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
       const newStroke: Stroke = {
         id: uuidv4(),
+        roomId,
         points: [point],
         color: tool === 'eraser' ? '#000000' : color,
         tool: tool === 'eraser' ? 'eraser' : 'pen',
@@ -427,7 +430,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       currentStrokeRef.current = newStroke
       setIsDrawing(true)
     },
-    [tool, color, textBlocks, getPointerPosition, onTextBlocksChange, shouldDraw]
+    [roomId, tool, color, textBlocks, getPointerPosition, onTextBlocksChange, shouldDraw]
   )
 
   const handlePointerMove = useCallback(
@@ -473,6 +476,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
         const point = getPointerPosition(e)
         const newTextBlock: TextBlock = {
           id: uuidv4(),
+          roomId,
           x: point.x,
           y: point.y,
           width: 200,

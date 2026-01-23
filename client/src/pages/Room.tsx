@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
+import { generateRoomId } from '../utils/id'
 import { Canvas, CanvasHandle } from '../components/Canvas'
 import { Toolbar } from '../components/Toolbar'
 import { useCollaboration } from '../hooks/useCollaboration'
@@ -14,10 +15,10 @@ import '../App.css'
 
 type Theme = 'light' | 'dark'
 
-const ConnectionIndicator = ({ isConnected }: { isConnected: boolean }) => (
+const ConnectionIndicator = ({ isConnected, isDisconnectedPermanently }: { isConnected: boolean; isDisconnectedPermanently: boolean }) => (
   <div style={{
     fontSize: '12px',
-    color: isConnected ? '#4caf50' : '#ff9800',
+    color: isConnected ? '#4caf50' : (isDisconnectedPermanently ? '#ef5350' : '#ff9800'),
     display: 'flex',
     alignItems: 'center',
     gap: '6px'
@@ -26,10 +27,10 @@ const ConnectionIndicator = ({ isConnected }: { isConnected: boolean }) => (
       width: '8px',
       height: '8px',
       borderRadius: '50%',
-      backgroundColor: isConnected ? '#4caf50' : '#ff9800',
+      backgroundColor: isConnected ? '#4caf50' : (isDisconnectedPermanently ? '#ef5350' : '#ff9800'),
       boxShadow: isConnected ? '0 0 4px #4caf50' : 'none'
     }} />
-    {isConnected ? 'Connected' : 'Connecting...'}
+    {isConnected ? 'Connected' : (isDisconnectedPermanently ? 'Disconnected' : 'Connecting...')}
   </div>
 )
 
@@ -135,8 +136,10 @@ export function Room() {
           }
         })
         .catch((err) => {
-          setError(`Failed to create room: ${err.message}`)
-          creatingRef.current = false
+          console.error(`Failed to create room on server: ${err.message}. Falling back to local room.`)
+          // Fallback to local room creation
+          const localId = generateRoomId()
+          navigate({ to: '/room/$roomId', params: { roomId: localId }, replace: true })
         })
         .finally(() => setCreating(false))
     }
@@ -159,6 +162,7 @@ export function Room() {
     clearAll,
     setStrokesLocal,
     setTextBlocksLocal,
+    isDisconnectedPermanently,
   } = useCollaboration({
     roomId: (urlRoomId === 'new' || !urlRoomId) ? null : urlRoomId,
     onError: useCallback((err: string) => setError(err), []),
@@ -167,6 +171,10 @@ export function Room() {
   // Track recent rooms
   useEffect(() => {
     if (isConnected && urlRoomId && roomTitle) {
+      RecentRoomsService.addOrUpdateRoom(urlRoomId, roomTitle)
+    }
+    // Also track if we have local data (even if not connected)
+    if (!isConnected && urlRoomId && roomTitle) {
       RecentRoomsService.addOrUpdateRoom(urlRoomId, roomTitle)
     }
   }, [isConnected, urlRoomId, roomTitle])
@@ -249,7 +257,7 @@ export function Room() {
           </div>
           <div className="room-status">
             <ParticipantList participants={participants} />
-            <ConnectionIndicator isConnected={isConnected} />
+            <ConnectionIndicator isConnected={isConnected} isDisconnectedPermanently={isDisconnectedPermanently} />
           </div>
         </div>
 
@@ -275,6 +283,7 @@ export function Room() {
         <div className="canvas-wrapper" onMouseMove={handleMouseMove}>
           <Canvas
             ref={canvasRef}
+            roomId={urlRoomId}
             tool={tool}
             color={color}
             font={font}

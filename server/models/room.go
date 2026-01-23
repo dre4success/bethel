@@ -32,9 +32,13 @@ func GenerateRoomID() string {
 }
 
 // CreateRoom creates a new room in the database
-func CreateRoom(ctx context.Context, pool *pgxpool.Pool, title string) (*Room, error) {
+func CreateRoom(ctx context.Context, pool *pgxpool.Pool, id string, title string) (*Room, error) {
+	if id == "" {
+		id = GenerateRoomID()
+	}
+
 	room := &Room{
-		ID:        GenerateRoomID(),
+		ID:        id,
 		Title:     title,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),

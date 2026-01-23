@@ -138,10 +138,16 @@ func (h *Hub) sendRoomState(client *Client) {
     }
 
 	if err != nil {
-		log.Printf("Failed to get room state: %v", err)
-		// Send empty state for new rooms
+		log.Printf("Failed to get room state: %v. Creating new room %s", err, client.RoomID)
+		// Auto-create room for offline clients syncing back
+		newRoom, createErr := models.CreateRoom(ctx, h.DB, client.RoomID, "Untitled")
+		if createErr != nil {
+			log.Printf("Failed to auto-create room: %v", createErr)
+			return
+		}
+		
 		roomState = &models.RoomState{
-			Room:       models.Room{ID: client.RoomID, Title: "Untitled"},
+			Room:       *newRoom,
 			Strokes:    []models.Stroke{},
 			TextBlocks: []models.TextBlock{},
 		}
