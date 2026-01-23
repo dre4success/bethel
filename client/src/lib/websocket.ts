@@ -218,15 +218,9 @@ export class WebSocketClient {
 }
 
 // Helper to get WebSocket URL based on current environment
+// Development: Vite proxy handles /ws/* -> ws://localhost:8080
+// Production: Same-origin (served from Go)
 export function getWebSocketUrl(): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-
-  // specific override (e.g. for production)
-  if (import.meta.env.VITE_WS_HOST) {
-    return `${protocol}//${import.meta.env.VITE_WS_HOST}`
-  }
-
-  // Development / Local Network: use current hostname + server port
-  // This allows connecting from other devices (e.g. iPad at 192.168.x.x)
-  return `${protocol}//${window.location.hostname}:8080`
+  return `${protocol}//${window.location.host}`
 }
