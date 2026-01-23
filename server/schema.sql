@@ -3,7 +3,7 @@
 
 -- Rooms table
 CREATE TABLE rooms (
-    id VARCHAR(12) PRIMARY KEY,
+    id VARCHAR(36) PRIMARY KEY,
     title VARCHAR(255) NOT NULL DEFAULT 'Untitled',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
@@ -11,8 +11,8 @@ CREATE TABLE rooms (
 
 -- Strokes table
 CREATE TABLE strokes (
-    id UUID PRIMARY KEY,
-    room_id VARCHAR(12) NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    id VARCHAR(36) PRIMARY KEY,
+    room_id VARCHAR(36) NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
     points JSONB NOT NULL,
     color VARCHAR(7) NOT NULL,
     tool VARCHAR(10) NOT NULL CHECK (tool IN ('pen', 'eraser')),
@@ -22,8 +22,8 @@ CREATE TABLE strokes (
 
 -- Text blocks table
 CREATE TABLE text_blocks (
-    id UUID PRIMARY KEY,
-    room_id VARCHAR(12) NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    id VARCHAR(36) PRIMARY KEY,
+    room_id VARCHAR(36) NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
     x DOUBLE PRECISION NOT NULL,
     y DOUBLE PRECISION NOT NULL,
     width DOUBLE PRECISION NOT NULL,
