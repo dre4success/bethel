@@ -1,5 +1,5 @@
 import { createRouter, createRootRoute, createRoute, Outlet } from '@tanstack/react-router'
-import App from './App'
+import { Home } from './pages/Home'
 import { Room } from './pages/Room'
 
 // Root layout
@@ -7,11 +7,11 @@ const rootRoute = createRootRoute({
   component: () => <Outlet />,
 })
 
-// Index route - local note editor
+// Index route - recent rooms list
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: App,
+  component: Home,
 })
 
 // Room route - collaborative room

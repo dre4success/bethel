@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Tool } from '../../types'
-import { COLORS, FONTS } from '../../types'
+import { PRESET_COLORS, FONTS } from '../../types'
 import './Toolbar.css'
 
 interface ToolbarProps {
@@ -133,7 +133,7 @@ export function Toolbar({
       <div className="toolbar-divider" />
 
       <div className="toolbar-section colors">
-        {COLORS.map((c) => (
+        {PRESET_COLORS.map((c) => (
           <button
             key={c}
             className={`color-button ${color === c ? 'active' : ''}`}
@@ -145,6 +145,15 @@ export function Toolbar({
             title={`Color: ${c === '#000000' && theme === 'dark' ? 'Adaptive White' : c}`}
           />
         ))}
+        <div className="custom-color-wrapper">
+          <input
+            type="color"
+            className={`color-button custom-color-input ${!PRESET_COLORS.includes(color as any) ? 'active' : ''}`}
+            value={color}
+            onChange={(e) => onColorChange(e.target.value)}
+            title="Custom Color"
+          />
+        </div>
       </div>
 
       <div className="toolbar-divider" />

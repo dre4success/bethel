@@ -43,7 +43,7 @@ export interface CanvasState {
   textBlocks: TextBlock[]
 }
 
-export const COLORS = [
+export const PRESET_COLORS = [
   '#000000', // Black
   '#FF3B30', // Red
   '#007AFF', // Blue

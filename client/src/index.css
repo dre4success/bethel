@@ -24,6 +24,7 @@
   --shadow-color: rgba(0, 0, 0, 0.05);
   --canvas-bg: #ffffff;
   --accent-color: #007aff;
+  --accent-hover: #0056b3;
   --danger-color: #d32f2f;
   --danger-bg: #ffebee;
 
@@ -42,6 +43,7 @@
   --shadow-color: rgba(0, 0, 0, 0.3);
   --canvas-bg: #2d2d2d;
   --accent-color: #0a84ff;
+  --accent-hover: #0066cc;
   --danger-color: #ff453a;
   --danger-bg: #3d2020;
 

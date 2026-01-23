@@ -6,8 +6,10 @@ import { useCollaboration } from '../hooks/useCollaboration'
 import { ParticipantList } from '../components/Presence/ParticipantList'
 import { RemoteCursors } from '../components/Presence/Cursor'
 import { exportToPNG, exportToPDF, exportToSVG } from '../lib/export'
+import { API_BASE } from '../config'
+import { RecentRoomsService } from '../services/recentRooms'
 import type { Tool } from '../types'
-import { COLORS, DEFAULT_FONT } from '../types'
+import { PRESET_COLORS, DEFAULT_FONT } from '../types'
 import '../App.css'
 
 type Theme = 'light' | 'dark'
@@ -82,17 +84,13 @@ function EditableTitle({ title, onUpdate }: { title: string; onUpdate: (t: strin
   )
 }
 
-// API base URL for room creation
-// Use environment variable or derive from current hostname (for iPad/mobile access)
-const API_BASE = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8080`
-
 export function Room() {
   const params = useParams({ strict: false })
   const navigate = useNavigate()
   const urlRoomId = params.roomId as string | undefined
 
   const [tool, setTool] = useState<Tool>('pen')
-  const [color, setColor] = useState<string>(COLORS[0])
+  const [color, setColor] = useState<string>(PRESET_COLORS[0])
   const [font, setFont] = useState<string>(DEFAULT_FONT)
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('bethel-theme')
@@ -165,6 +163,13 @@ export function Room() {
     roomId: (urlRoomId === 'new' || !urlRoomId) ? null : urlRoomId,
     onError: useCallback((err: string) => setError(err), []),
   })
+
+  // Track recent rooms
+  useEffect(() => {
+    if (isConnected && urlRoomId && roomTitle) {
+      RecentRoomsService.addOrUpdateRoom(urlRoomId, roomTitle)
+    }
+  }, [isConnected, urlRoomId, roomTitle])
 
   // Handle cursor movement on canvas
   const handleMouseMove = useCallback(
