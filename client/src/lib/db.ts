@@ -10,7 +10,7 @@ export interface Room {
 export interface PendingAction {
   id?: number
   roomId: string
-  type: 'stroke_add' | 'stroke_update' | 'text_add' | 'text_update' | 'text_delete' | 'room_update'
+  type: 'stroke_add' | 'stroke_update' | 'text_add' | 'text_update' | 'text_delete' | 'room_update' | 'clear_all'
   payload: any
   createdAt: number
 }

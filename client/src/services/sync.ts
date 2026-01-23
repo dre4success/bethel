@@ -78,6 +78,17 @@ export class SyncService {
         }
     }
 
+    static async clearRoom(roomId: string, isRemote: boolean = false) {
+        await db.strokes.where('roomId').equals(roomId).delete()
+        await db.textBlocks.where('roomId').equals(roomId).delete()
+
+        await this.touchRoom(roomId)
+
+        if (!isRemote) {
+            await this.queueAction(roomId, 'clear_all', {})
+        }
+    }
+
     // --- Queue Management ---
 
     private static async queueAction(roomId: string, type: PendingAction['type'], payload: any) {
@@ -122,6 +133,9 @@ export class SyncService {
                             break
                         case 'room_update':
                             client.updateRoomTitle(action.payload.title)
+                            break
+                        case 'clear_all':
+                            client.clearAll()
                             break
                     }
 

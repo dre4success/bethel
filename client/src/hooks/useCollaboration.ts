@@ -226,7 +226,7 @@ export function useCollaboration({
   const handleClearAll = () => {
     setStrokes([])
     setTextBlocks([])
-    // TODO: Handle clear all in sync service if needed
+    if (roomId) SyncService.clearRoom(roomId, true)
   }
 
   const handleRoomUpdate = (roomTitle: string) => {
@@ -288,44 +288,51 @@ export function useCollaboration({
   }, [roomId])
 
   // Action functions
+  // Note: When online, we send via WebSocket and skip queueing (pass true to SyncService).
+  // When offline, we only save locally which queues the action for later sync.
   const addStroke = useCallback((stroke: Stroke) => {
     setStrokes((prev) => [...prev, stroke])
-    if (wsRef.current?.isConnected) {
+    const isOnline = wsRef.current?.isConnected ?? false
+    if (isOnline) {
       wsRef.current?.addStroke(stroke)
     }
-    SyncService.saveStroke(stroke) // Save locally + queue if offline (implied by service logic usually, but here service handles queueing)
+    SyncService.saveStroke(stroke, isOnline) // Skip queue if already sent via WebSocket
   }, [])
 
   const updateStroke = useCallback((strokeId: string, points: Point[]) => {
     setStrokes((prev) => prev.map((s) => (s.id === strokeId ? { ...s, points } : s)))
-    if (wsRef.current?.isConnected) {
+    const isOnline = wsRef.current?.isConnected ?? false
+    if (isOnline) {
       wsRef.current?.updateStroke(strokeId, points)
     }
-    if (roomId) SyncService.updateStroke(strokeId, points, roomId)
+    if (roomId) SyncService.updateStroke(strokeId, points, roomId, isOnline)
   }, [roomId])
 
   const addTextBlock = useCallback((textBlock: TextBlock) => {
     setTextBlocks((prev) => [...prev, textBlock])
-    if (wsRef.current?.isConnected) {
+    const isOnline = wsRef.current?.isConnected ?? false
+    if (isOnline) {
       wsRef.current?.addTextBlock(textBlock)
     }
-    SyncService.saveTextBlock(textBlock)
+    SyncService.saveTextBlock(textBlock, isOnline)
   }, [])
 
   const updateTextBlock = useCallback((textBlockId: string, updates: Partial<TextBlock>) => {
     setTextBlocks((prev) => prev.map((tb) => (tb.id === textBlockId ? { ...tb, ...updates } : tb)))
-    if (wsRef.current?.isConnected) {
+    const isOnline = wsRef.current?.isConnected ?? false
+    if (isOnline) {
       wsRef.current?.updateTextBlock(textBlockId, updates)
     }
-    if (roomId) SyncService.updateTextBlock(textBlockId, updates, roomId)
+    if (roomId) SyncService.updateTextBlock(textBlockId, updates, roomId, isOnline)
   }, [roomId])
 
   const deleteTextBlock = useCallback((textBlockId: string) => {
     setTextBlocks((prev) => prev.filter((tb) => tb.id !== textBlockId))
-    if (wsRef.current?.isConnected) {
+    const isOnline = wsRef.current?.isConnected ?? false
+    if (isOnline) {
       wsRef.current?.deleteTextBlock(textBlockId)
     }
-    if (roomId) SyncService.deleteTextBlock(textBlockId, roomId)
+    if (roomId) SyncService.deleteTextBlock(textBlockId, roomId, isOnline)
   }, [roomId])
 
   const moveCursor = useCallback((x: number, y: number) => {
@@ -336,19 +343,22 @@ export function useCollaboration({
 
   const updateRoomTitle = useCallback((title: string) => {
     setRoomTitle(title)
-    if (wsRef.current?.isConnected) {
+    const isOnline = wsRef.current?.isConnected ?? false
+    if (isOnline) {
       wsRef.current?.updateRoomTitle(title)
     }
-    if (roomId) SyncService.updateRoomTitle(roomId, title)
+    if (roomId) SyncService.updateRoomTitle(roomId, title, isOnline)
   }, [roomId])
 
   const clearAll = useCallback(() => {
     setStrokes([])
     setTextBlocks([])
-    if (wsRef.current?.isConnected) {
+    const isOnline = wsRef.current?.isConnected ?? false
+    if (isOnline) {
       wsRef.current?.clearAll()
     }
-  }, [])
+    if (roomId) SyncService.clearRoom(roomId, isOnline)
+  }, [roomId])
 
   // Local-only setters (for when we need to update without broadcasting)
   const setStrokesLocal = useCallback((newStrokes: Stroke[]) => {
