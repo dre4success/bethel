@@ -2,10 +2,15 @@ package db
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
+	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+//go:embed schema.sql
+var schemaSQL string
 
 // Connect establishes a connection pool to PostgreSQL
 func Connect(databaseURL string) (*pgxpool.Pool, error) {
@@ -31,75 +36,13 @@ func Connect(databaseURL string) (*pgxpool.Pool, error) {
 func RunMigrations(pool *pgxpool.Pool) error {
 	ctx := context.Background()
 
-	migrations := []string{
-		// Rooms table
-		`CREATE TABLE IF NOT EXISTS rooms (
-			id VARCHAR(36) PRIMARY KEY,
-			title VARCHAR(255) DEFAULT 'Untitled',
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-		)`,
+	log.Println("Running database migrations from schema.sql...")
 
-		// Strokes table
-		`CREATE TABLE IF NOT EXISTS strokes (
-			id VARCHAR(36) PRIMARY KEY,
-			room_id VARCHAR(36) REFERENCES rooms(id) ON DELETE CASCADE,
-			points JSONB NOT NULL,
-			color VARCHAR(7) NOT NULL,
-			tool VARCHAR(10) NOT NULL,
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-			created_by VARCHAR(36)
-		)`,
-
-		// Text blocks table
-		`CREATE TABLE IF NOT EXISTS text_blocks (
-			id VARCHAR(36) PRIMARY KEY,
-			room_id VARCHAR(36) REFERENCES rooms(id) ON DELETE CASCADE,
-			x FLOAT NOT NULL,
-			y FLOAT NOT NULL,
-			width FLOAT NOT NULL,
-			height FLOAT NOT NULL,
-			content TEXT NOT NULL DEFAULT '',
-			font_size FLOAT NOT NULL DEFAULT 24,
-			color VARCHAR(7) NOT NULL DEFAULT '#000000',
-			font_family VARCHAR(100) NOT NULL,
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-		)`,
-
-		// Indexes
-		`CREATE INDEX IF NOT EXISTS idx_strokes_room ON strokes(room_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_text_blocks_room ON text_blocks(room_id)`,
-
-		// Migrations (Idempotent)
-		`DO $$ 
-		BEGIN 
-			-- Migrate Room IDs and Foreign Keys if they are short strings
-			IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'rooms' AND column_name = 'id' AND character_maximum_length < 36) THEN
-				ALTER TABLE text_blocks DROP CONSTRAINT IF EXISTS text_blocks_room_id_fkey;
-				ALTER TABLE strokes DROP CONSTRAINT IF EXISTS strokes_room_id_fkey;
-				
-				ALTER TABLE rooms ALTER COLUMN id TYPE VARCHAR(36);
-				ALTER TABLE strokes ALTER COLUMN room_id TYPE VARCHAR(36);
-				ALTER TABLE text_blocks ALTER COLUMN room_id TYPE VARCHAR(36);
-				
-				ALTER TABLE strokes ADD CONSTRAINT strokes_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE;
-				ALTER TABLE text_blocks ADD CONSTRAINT text_blocks_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE;
-			END IF;
-
-			-- Migrate IDs from UUID type to VARCHAR(36) if needed
-			IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'strokes' AND column_name = 'id' AND data_type = 'uuid') THEN
-				ALTER TABLE strokes ALTER COLUMN id TYPE VARCHAR(36);
-				ALTER TABLE text_blocks ALTER COLUMN id TYPE VARCHAR(36);
-			END IF;
-		END $$;`,
+	// Execute the embedded SQL schema
+	if _, err := pool.Exec(ctx, schemaSQL); err != nil {
+		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	for _, migration := range migrations {
-		if _, err := pool.Exec(ctx, migration); err != nil {
-			return fmt.Errorf("migration failed: %w", err)
-		}
-	}
-
+	log.Println("Migrations completed successfully.")
 	return nil
 }
