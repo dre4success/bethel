@@ -7,7 +7,7 @@ COPY client/ .
 RUN npm run build
 
 # Stage 2: Build the Server
-FROM golang:1.22-alpine AS server-builder
+FROM golang:1.24-alpine AS server-builder
 WORKDIR /app/server
 
 # Install build dependencies if needed
