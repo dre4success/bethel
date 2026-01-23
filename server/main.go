@@ -64,6 +64,31 @@ func main() {
 		w.Write([]byte("OK"))
 	}).Methods("GET")
 
+	// Serve static files (frontend)
+	staticDir := "./static"
+	if _, err := os.Stat(staticDir); err == nil {
+		// Serve /assets/ directly
+		r.PathPrefix("/assets/").Handler(http.StripPrefix("/assets/", http.FileServer(http.Dir(staticDir+"/assets"))))
+
+		// Serve index.html for all other routes (SPA fallback)
+		// Note: API and WS routes are already handled by earlier mux rules.
+		r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path := staticDir + r.URL.Path
+			
+			// Check if it's a file that exists (like favicon.ico, robot.txt)
+			if info, err := os.Stat(path); err == nil && !info.IsDir() {
+				http.ServeFile(w, r, path)
+				return
+			}
+
+			// Otherwise serve index.html
+			http.ServeFile(w, r, staticDir+"/index.html")
+		})
+		log.Println("✅ Serving static files from ./static")
+	} else {
+		log.Println("⚠️ No static directory found, running API only")
+	}
+
 	// CORS configuration
 	c := cors.New(cors.Options{
 		AllowedOrigins:   strings.Split(allowedOrigins, ","),

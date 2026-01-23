@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  bethel:
+    build: .
+    image: bethel-app:latest
+    container_name: bethel-app
+    restart: unless-stopped
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/bethel?sslmode=disable
+      - ALLOWED_ORIGINS=http://bethel.localhost,https://bethel.yourdomain.com
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bethel.rule=Host(`bethel.localhost`)"
+      - "traefik.http.services.bethel.loadbalancer.server.port=8080"
+    networks:
+      - web_proxy_net
+      - internal_db_net
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: bethel-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bethel
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal_db_net
+
+volumes:
+  postgres_data:
+
+
+networks:
+  web_proxy_net:
+    external: true
+  internal_db_net:
