@@ -34,7 +34,7 @@ func RunMigrations(pool *pgxpool.Pool) error {
 	migrations := []string{
 		// Rooms table
 		`CREATE TABLE IF NOT EXISTS rooms (
-			id VARCHAR(12) PRIMARY KEY,
+			id VARCHAR(36) PRIMARY KEY,
 			title VARCHAR(255) DEFAULT 'Untitled',
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -42,8 +42,8 @@ func RunMigrations(pool *pgxpool.Pool) error {
 
 		// Strokes table
 		`CREATE TABLE IF NOT EXISTS strokes (
-			id UUID PRIMARY KEY,
-			room_id VARCHAR(12) REFERENCES rooms(id) ON DELETE CASCADE,
+			id VARCHAR(36) PRIMARY KEY,
+			room_id VARCHAR(36) REFERENCES rooms(id) ON DELETE CASCADE,
 			points JSONB NOT NULL,
 			color VARCHAR(7) NOT NULL,
 			tool VARCHAR(10) NOT NULL,
@@ -53,8 +53,8 @@ func RunMigrations(pool *pgxpool.Pool) error {
 
 		// Text blocks table
 		`CREATE TABLE IF NOT EXISTS text_blocks (
-			id UUID PRIMARY KEY,
-			room_id VARCHAR(12) REFERENCES rooms(id) ON DELETE CASCADE,
+			id VARCHAR(36) PRIMARY KEY,
+			room_id VARCHAR(36) REFERENCES rooms(id) ON DELETE CASCADE,
 			x FLOAT NOT NULL,
 			y FLOAT NOT NULL,
 			width FLOAT NOT NULL,
@@ -74,6 +74,7 @@ func RunMigrations(pool *pgxpool.Pool) error {
 		// Migrations (Idempotent)
 		`DO $$ 
 		BEGIN 
+			-- Migrate Room IDs and Foreign Keys if they are short strings
 			IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'rooms' AND column_name = 'id' AND character_maximum_length < 36) THEN
 				ALTER TABLE text_blocks DROP CONSTRAINT IF EXISTS text_blocks_room_id_fkey;
 				ALTER TABLE strokes DROP CONSTRAINT IF EXISTS strokes_room_id_fkey;
@@ -84,6 +85,12 @@ func RunMigrations(pool *pgxpool.Pool) error {
 				
 				ALTER TABLE strokes ADD CONSTRAINT strokes_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE;
 				ALTER TABLE text_blocks ADD CONSTRAINT text_blocks_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE;
+			END IF;
+
+			-- Migrate IDs from UUID type to VARCHAR(36) if needed
+			IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'strokes' AND column_name = 'id' AND data_type = 'uuid') THEN
+				ALTER TABLE strokes ALTER COLUMN id TYPE VARCHAR(36);
+				ALTER TABLE text_blocks ALTER COLUMN id TYPE VARCHAR(36);
 			END IF;
 		END $$;`,
 	}
