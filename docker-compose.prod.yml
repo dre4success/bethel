@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   bethel:
     image: ghcr.io/dre4success/bethel-server:latest

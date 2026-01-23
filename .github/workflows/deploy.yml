@@ -67,12 +67,7 @@ jobs:
             echo "Deployed at $(date)"
 
       - name: Verify deployment
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: deploy
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            sleep 5
-            curl -f http://localhost:8080/health || exit 1
-            echo "Health check passed!"
+        run: |
+          sleep 10
+          curl -f https://bethel.dre4success.com/health || exit 1
+          echo "Health check passed!"
