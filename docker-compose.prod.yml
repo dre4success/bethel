@@ -12,6 +12,7 @@ services:
       - ALLOWED_ORIGINS=https://${DOMAIN}
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=web_proxy_net"
       # HTTP to HTTPS redirect
       - "traefik.http.routers.bethel-http.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.bethel-http.entrypoints=web"
