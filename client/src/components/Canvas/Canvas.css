@@ -2,7 +2,7 @@
   flex: 1;
   overflow: auto;
   background: var(--bg-tertiary);
-  /* Allow touch scrolling */
+  /* Allow touch scrolling on tablets */
   touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
   /* Hide scrollbars but keep scrolling */
@@ -10,6 +10,14 @@
   /* Firefox */
   /* Prevent elastic bounding which causes visual glitches on iOS Chrome */
   overscroll-behavior: none;
+}
+
+/* On phones, disable scrolling - canvas is for drawing */
+@media (max-width: 768px) {
+  .scroll-container {
+    overflow: hidden;
+    touch-action: none;
+  }
 }
 
 .scroll-container::-webkit-scrollbar {
@@ -28,8 +36,15 @@
   left: 0;
   cursor: crosshair;
   background: var(--canvas-bg);
-  /* Pen/mouse draws, touch passes through for scrolling */
-  touch-action: pan-x pan-y;
+  /* Allow pen input, let touch scroll on tablets */
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
+/* On phones, disable touch-action so touch can draw */
+@media (max-width: 768px) {
+  .drawing-canvas {
+    touch-action: none;
+  }
 }
 
 .text-block {

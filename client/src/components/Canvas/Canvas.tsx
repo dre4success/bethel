@@ -12,9 +12,10 @@ import type { Stroke, Point, Tool, TextBlock } from '../../types'
 import { drawStroke, redrawCanvas, getRenderColor } from '../../lib/stroke'
 import './Canvas.css'
 
-// Canvas dimensions (larger than viewport for scrolling)
-const CANVAS_WIDTH = 3000
-const CANVAS_HEIGHT = 3000
+// Canvas dimensions - smaller on mobile for performance
+const isMobileDevice = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+const CANVAS_WIDTH = isMobileDevice ? 1200 : 3000
+const CANVAS_HEIGHT = isMobileDevice ? 1600 : 3000
 
 import { ResizeHandles } from './ResizeHandles'
 
@@ -314,7 +315,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       ctx.scale(dpr, dpr)
       redrawCanvas(ctx, strokes, CANVAS_WIDTH, CANVAS_HEIGHT, theme)
     }
-  }, []) // Only run once on mount
+  }, [])
 
   // Redraw when strokes or theme change
   useEffect(() => {
@@ -329,40 +330,63 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     redrawCanvas(ctx, strokes, CANVAS_WIDTH, CANVAS_HEIGHT, theme)
   }, [strokes, theme])
 
-  // Handle native pointer events to prevent scrolling for pen
+  // Handle native pointer events to prevent scrolling
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    const isMobile = window.matchMedia('(max-width: 768px)').matches
+
     const handleNativePointerDown = (e: PointerEvent) => {
-      // If it's a pen, prevent default to stop browser scrolling
-      if (e.pointerType === 'pen') {
+      if (e.pointerType === 'pen' || (e.pointerType === 'touch' && isMobile)) {
+        e.preventDefault()
+      }
+    }
+
+    const handleNativePointerMove = (e: PointerEvent) => {
+      // Prevent default during drawing to avoid scroll interference
+      if (e.pointerType === 'pen' || (e.pointerType === 'touch' && isMobile)) {
         e.preventDefault()
       }
     }
 
     const handleTouchStart = (e: TouchEvent) => {
-      // Aggressively prevent scrolling if it's a stylus
-      const touch = e.touches[0] as any
-      if (e.touches.length === 1 && touch.touchType === 'stylus') {
+      // On mobile, prevent touch scroll to allow drawing
+      if (isMobile || (e.touches[0] as any)?.touchType === 'stylus') {
         e.preventDefault()
       }
     }
 
-    // passive: false is critical for preventDefault to work on iOS
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isMobile || (e.touches[0] as any)?.touchType === 'stylus') {
+        e.preventDefault()
+      }
+    }
+
+    // passive: false is critical for preventDefault to work
     canvas.addEventListener('pointerdown', handleNativePointerDown, { passive: false })
+    canvas.addEventListener('pointermove', handleNativePointerMove, { passive: false })
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
 
     return () => {
       canvas.removeEventListener('pointerdown', handleNativePointerDown)
+      canvas.removeEventListener('pointermove', handleNativePointerMove)
       canvas.removeEventListener('touchstart', handleTouchStart)
+      canvas.removeEventListener('touchmove', handleTouchMove)
     }
   }, [])
 
-  // Check if this pointer type should draw (pen or mouse, not touch)
+  // Check if this pointer type should draw
   const shouldDraw = useCallback((e: React.PointerEvent): boolean => {
-    // Touch = scroll/pan, Pen/Mouse = draw
-    return e.pointerType === 'pen' || e.pointerType === 'mouse'
+    // Pen and mouse always draw
+    if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+      return true
+    }
+    // Allow touch on mobile devices (phones)
+    // On tablets with stylus (iPad, Samsung tablet), touch is for scrolling
+    const isMobilePhone = window.matchMedia('(max-width: 768px)').matches
+    return e.pointerType === 'touch' && isMobilePhone
   }, [])
 
   const getPointerPosition = useCallback((e: React.PointerEvent): Point => {
@@ -382,6 +406,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
+
       // Don't draw if clicking on a text block
       if (
         (e.target as HTMLElement).tagName === 'TEXTAREA' ||
