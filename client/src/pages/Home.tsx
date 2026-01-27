@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { generateRoomId } from '../utils/id'
 import { RecentRoomsService, RecentRoom } from '../services/recentRooms'
 import { API_BASE } from '../config'
+import { analytics } from '../lib/posthog'
 import './Home.css'
 
 export function Home() {
@@ -23,6 +24,7 @@ export function Home() {
       .then((res) => res.json())
       .then((data) => {
         if (data.id) {
+          analytics.roomCreated(data.id)
           navigate({ to: '/room/$roomId', params: { roomId: data.id } })
         }
       })
@@ -30,6 +32,7 @@ export function Home() {
         console.error(`Failed to create room on server: ${err.message}. Falling back to local room.`)
         // Fallback to local room creation
         const localId = generateRoomId()
+        analytics.roomCreated(localId)
         navigate({ to: '/room/$roomId', params: { roomId: localId } })
       })
       .finally(() => setIsCreating(false))

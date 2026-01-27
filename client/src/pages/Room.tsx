@@ -9,6 +9,7 @@ import { RemoteCursors } from '../components/Presence/Cursor'
 import { exportToPNG, exportToPDF, exportToSVG } from '../lib/export'
 import { API_BASE } from '../config'
 import { RecentRoomsService } from '../services/recentRooms'
+import { analytics } from '../lib/posthog'
 import type { Tool } from '../types'
 import { PRESET_COLORS, DEFAULT_FONT } from '../types'
 import '../App.css'
@@ -109,7 +110,11 @@ export function Room() {
   }, [theme])
 
   const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+    setTheme((prev) => {
+      const newTheme = prev === 'light' ? 'dark' : 'light'
+      analytics.themeChanged(newTheme)
+      return newTheme
+    })
   }, [])
 
   // Create new room if navigated to /room/new
@@ -168,16 +173,17 @@ export function Room() {
     onError: useCallback((err: string) => setError(err), []),
   })
 
-  // Track recent rooms
+  // Track recent rooms and analytics
   useEffect(() => {
     if (isConnected && urlRoomId && roomTitle) {
       RecentRoomsService.addOrUpdateRoom(urlRoomId, roomTitle)
+      analytics.roomJoined(urlRoomId, participants.length)
     }
     // Also track if we have local data (even if not connected)
     if (!isConnected && urlRoomId && roomTitle) {
       RecentRoomsService.addOrUpdateRoom(urlRoomId, roomTitle)
     }
-  }, [isConnected, urlRoomId, roomTitle])
+  }, [isConnected, urlRoomId, roomTitle, participants.length])
 
   // Handle cursor movement on canvas
   const handleMouseMove = useCallback(
@@ -192,6 +198,7 @@ export function Room() {
 
   const handleClear = useCallback(() => {
     if (confirm('Clear all content from this room?')) {
+      analytics.canvasCleared()
       clearAll()
     }
   }, [clearAll])
@@ -199,6 +206,7 @@ export function Room() {
   const handleExportPNG = useCallback(() => {
     const canvas = canvasRef.current?.getCanvas()
     if (canvas) {
+      analytics.canvasExported('png')
       const filename = `${roomTitle || 'room'}.png`
       exportToPNG(canvas, strokes, textBlocks, filename)
     }
@@ -207,12 +215,14 @@ export function Room() {
   const handleExportPDF = useCallback(async () => {
     const canvas = canvasRef.current?.getCanvas()
     if (canvas) {
+      analytics.canvasExported('pdf')
       const filename = `${roomTitle || 'room'}.pdf`
       await exportToPDF(canvas, strokes, textBlocks, filename)
     }
   }, [strokes, textBlocks, roomTitle])
 
   const handleExportSVG = useCallback(() => {
+    analytics.canvasExported('svg')
     const filename = `${roomTitle || 'room'}.svg`
     exportToSVG(strokes, textBlocks, filename)
   }, [strokes, textBlocks, roomTitle])

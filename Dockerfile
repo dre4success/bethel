@@ -1,9 +1,19 @@
 # Stage 1: Build the Client
 FROM node:20-alpine AS client-builder
 WORKDIR /app/client
+
+# Build args for Vite (embedded at build time)
+ARG VITE_POSTHOG_KEY
+ARG VITE_POSTHOG_HOST=https://eu.i.posthog.com
+
 COPY client/package*.json ./
 RUN npm ci
 COPY client/ .
+
+# Pass build args as env vars for Vite
+ENV VITE_POSTHOG_KEY=$VITE_POSTHOG_KEY
+ENV VITE_POSTHOG_HOST=$VITE_POSTHOG_HOST
+
 RUN npm run build
 
 # Stage 2: Build the Server
