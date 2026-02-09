@@ -16,8 +16,9 @@ services:
       # HTTP to HTTPS redirect
       - "traefik.http.routers.bethel-http.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.bethel-http.entrypoints=web"
-      - "traefik.http.routers.bethel-http.middlewares=https-redirect"
-      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.bethel-http.middlewares=bethel-https-redirect"
+      - "traefik.http.middlewares.bethel-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.bethel-https-redirect.redirectscheme.permanent=true"
       # HTTPS
       - "traefik.http.routers.bethel.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.bethel.entrypoints=websecure"
