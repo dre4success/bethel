@@ -31,3 +31,4 @@ node_modules
 # Server binary
 server/bethel-server
 bethel-server
+CLAUDE.md
