@@ -235,6 +235,29 @@ export function Room() {
     })
   }, [])
 
+  // Create a new canvas (same logic as Home.tsx)
+  const [isCreatingNew, setIsCreatingNew] = useState(false)
+  const handleCreateNew = useCallback(() => {
+    setIsCreatingNew(true)
+    fetch(`${API_BASE}/api/rooms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.id) {
+          analytics.roomCreated(data.id)
+          navigate({ to: '/room/$roomId', params: { roomId: data.id } })
+        }
+      })
+      .catch((err) => {
+        console.error(`Failed to create room: ${err.message}`)
+        const localId = generateRoomId()
+        navigate({ to: '/room/$roomId', params: { roomId: localId } })
+      })
+      .finally(() => setIsCreatingNew(false))
+  }, [navigate])
+
   // Show loading while creating room
   if (creating || !urlRoomId || urlRoomId === 'new') {
     return (
@@ -260,9 +283,26 @@ export function Room() {
       <div className="main-content">
         <div className="room-header">
           <div className="room-info">
+            <button
+              className="back-button"
+              onClick={() => navigate({ to: '/' })}
+              title="Back to home"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5" />
+                <path d="M12 19l-7-7 7-7" />
+              </svg>
+            </button>
             <EditableTitle title={roomTitle} onUpdate={updateRoomTitle} />
             <button className="share-button" onClick={copyShareLink}>
               Share Link
+            </button>
+            <button
+              className="new-canvas-button"
+              onClick={handleCreateNew}
+              disabled={isCreatingNew}
+            >
+              {isCreatingNew ? 'Creating...' : '+ New Canvas'}
             </button>
           </div>
           <div className="room-status">
